@@ -2357,9 +2357,11 @@ function deleteList(lid){
 
 /* ADD */
 var addMode='paste', prevWords=[], selLang='en', selLevel='all', selType='words', selMeanLang='ja';
+var lastImportFileBase=''; /* 直近に読み込んだファイル名（拡張子なし）。リスト名のフォールバックに使う */
 
 function segSwitch(mode){
   addMode=mode;
+  if(mode!=='file')lastImportFileBase=''; /* ファイル以外のタブでは直近ファイル名を無効化 */
   ['paste','file','ai'].forEach(function(m){el('TP-'+m).style.display=m===mode?'block':'none';el('SG-'+m).classList.toggle('on',m===mode);});
   prvHide();
 }
@@ -2529,6 +2531,7 @@ function handleFile(evt){
   var f=evt.target.files[0];if(!f)return;evt.target.value='';
   var ext=f.name.split('.').pop().toLowerCase();
   var ni=el('IN-file-name');
+  lastImportFileBase=f.name.replace(/\.[^.]+$/,'').trim(); /* リスト名フォールバック用に記録 */
   /* ファイル名をリスト名候補として常にセット（ファイル名最優先） */
   if(ni)ni.value=f.name.replace(/\.[^.]+$/,'');
 
@@ -3225,7 +3228,10 @@ function saveList(){
   if(!prevWords.length)return;
   var nameMap={paste:'IN-paste-name',file:'IN-file-name',ai:'IN-ai-name'};
   var ni=el(nameMap[addMode]||'IN-paste-name');
-  var listName=(ni&&ni.value.trim())||((LANGS[selLang]?LANGS[selLang].name:'')+'リスト '+(G.lists.length+1));
+  /* リスト名の優先順位: 入力欄の値 → 直近ファイル名 → 言語別の既定名 */
+  var listName=(ni&&ni.value.trim())
+    || (lastImportFileBase&&lastImportFileBase.trim())
+    || ((LANGS[selLang]?LANGS[selLang].name:'')+'リスト '+(G.lists.length+1));
   var lst=null;
   for(var i=0;i<G.lists.length;i++){if(G.lists[i].name===listName){lst=G.lists[i];break;}}
   if(!lst){
@@ -3247,6 +3253,7 @@ function saveList(){
   });
   save();prvHide();
   if(ni)ni.value='';
+  lastImportFileBase=''; /* 取り込み完了 → 直近ファイル名をリセット */
   var ta=el(addMode==='paste'?'IN-paste-text':addMode==='ai'?'IN-ai-text':'IN-paste-text');if(ta)ta.value='';
   toast('✅ '+added+'単語を「'+listName+'」に追加しました');
   /* APIキーがあれば英語定義を非同期で生成してバックグラウンドで保存 */
