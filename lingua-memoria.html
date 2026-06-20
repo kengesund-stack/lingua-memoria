@@ -2529,7 +2529,8 @@ function handleFile(evt){
   var f=evt.target.files[0];if(!f)return;evt.target.value='';
   var ext=f.name.split('.').pop().toLowerCase();
   var ni=el('IN-file-name');
-  if(ni&&!ni.value)ni.value=f.name.replace(/\.[^.]+$/,'');
+  /* ファイル名をリスト名候補として常にセット（ファイル名最優先） */
+  if(ni)ni.value=f.name.replace(/\.[^.]+$/,'');
 
   if(fileMode==='json'||ext==='json'){
     var fr=new FileReader();
@@ -2716,11 +2717,17 @@ function jsonImport(text, fname){
     var d=JSON.parse(text);
   }catch(e){toast('❌ JSONの解析に失敗しました。形式を確認してください。');return;}
 
-  /* book_title からリスト名を自動設定 */
+  /* リスト名: ファイル名を最優先。ファイル名が渡されていればそれを使い、
+     無い場合（テキスト貼り付け等）のみ book_title/title/name を使う。 */
   var ni=el('IN-file-name');
   if(ni){
-    var autoName=d.book_title||d.title||d.name||fname.replace(/\.[^.]+$/,'');
-    if(autoName&&!ni.value)ni.value=autoName;
+    var fileBase=fname?fname.replace(/\.[^.]+$/,'').trim():'';
+    if(fileBase){
+      ni.value=fileBase;            /* ファイル名を最優先（既存の値も上書き） */
+    }else if(!ni.value){
+      var autoName=d.book_title||d.title||d.name||'';
+      if(autoName)ni.value=autoName; /* 貼り付け時など、ファイル名が無いときのみ */
+    }
   }
 
   /* 単語配列を取り出す汎用関数 */
@@ -7417,11 +7424,16 @@ function bind(){
   el('B-import-row').addEventListener('click',function(){el('IN-import').click();});
   el('IN-import').addEventListener('change',function(e){
     var f=e.target.files[0];if(!f)return;
+    var importFileBase=f.name.replace(/\.[^.]+$/,'').trim(); /* 拡張子を除いたファイル名 */
     var fr=new FileReader();
     fr.onload=function(ev){
       try{
         var d=JSON.parse(ev.target.result);
         if(!d.words||!d.lists)throw 0;
+        /* ファイル名最優先: リストが1つだけの復元ファイルなら、その名前をファイル名にする */
+        if(importFileBase&&d.lists.length===1){
+          d.lists[0].name=importFileBase;
+        }
         /* 追加統合: 既存IDと重複しないものだけ追加 */
         var existListIds=G.lists.map(function(l){return l.id;});
         var existWordIds=G.words.map(function(w){return w.id;});
