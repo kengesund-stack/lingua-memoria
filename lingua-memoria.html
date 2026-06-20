@@ -1037,33 +1037,6 @@ schön,美しい"></textarea>
         <span class="set-lbl" style="font-size:11px;color:var(--tx2);line-height:1.6">維持クイックの後に出題されます。英語定義(def)が登録された単語のみが対象です（既定OFF）。</span>
       </div>
     </div>
-    <div class="set-sec">✏️ スペルモード（覚える）</div>
-    <div class="set-group">
-      <div class="set-row" id="ROW-spell">
-        <span class="set-lbl">✏️ 4択終了後にスペル問題を出題</span>
-        <button class="toggle" id="TG-spell"></button>
-      </div>
-      <div class="set-row" style="cursor:default" id="ROW-spell-type">
-        <span class="set-lbl">🧩 出題タイプ</span>
-        <div style="display:flex;gap:5px">
-          <button class="opt-btn" data-spt="build" id="SPT-build" style="padding:5px 10px;font-size:12px">組み立て</button>
-          <button class="opt-btn" data-spt="choice" id="SPT-choice" style="padding:5px 10px;font-size:12px">スペル選択</button>
-          <button class="opt-btn" data-spt="both" id="SPT-both" style="padding:5px 10px;font-size:12px">両方</button>
-        </div>
-      </div>
-      <div class="set-row" style="cursor:default" id="ROW-spell-se">
-        <span class="set-lbl">🔔 効果音</span>
-        <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end">
-          <button class="opt-btn" data-se="off" id="SE-off" style="padding:5px 10px;font-size:12px">なし</button>
-          <button class="opt-btn" data-se="soft" id="SE-soft" style="padding:5px 10px;font-size:12px">ソフト</button>
-          <button class="opt-btn" data-se="click" id="SE-click" style="padding:5px 10px;font-size:12px">クリック</button>
-          <button class="opt-btn" data-se="beep" id="SE-beep" style="padding:5px 10px;font-size:12px">電子音</button>
-        </div>
-      </div>
-      <div class="set-row" style="cursor:default">
-        <span style="font-size:11px;color:var(--tx2);line-height:1.6">通常の4択クイズが終了した後、同じセッションの単語をスペル問題（覚える）として追加出題します。「両方」を選ぶと、組み立て問題を4択と同数 → スペル選択問題を4択と同数、の順で2ラウンド出題します。どちらもお手つき3回までは見逃して正解扱い、4回目で不正解になります。組み立てでは文字を置くと小さな音、間違えるとブブー音が鳴ります（効果音で変更・無音化できます）。「give up」のような熟語も出題され、スペースやハイフンは自動で埋まります（アルファベット20文字までの語句が対象）。テストモードでは出題されません。</span>
-      </div>
-    </div>
     <div class="set-sec">🧠 エビングハウス忘却曲線</div>
     <div class="set-group">
       <div class="set-row" id="ROW-ebbing">
@@ -6937,12 +6910,6 @@ function settingsLoad(){
   });
   var _qs=G.cfg.quickSec||5;
   [3,5,7].forEach(function(n){if(el('QS-'+n))el('QS-'+n).classList.toggle('on',_qs===n);});
-  /* ✏️ スペルモード設定 */
-  if(el('TG-spell'))el('TG-spell').classList.toggle('on',!!G.cfg.spell);
-  var _spt=G.cfg.spellType||'both';
-  ['build','choice','both'].forEach(function(t){if(el('SPT-'+t))el('SPT-'+t).classList.toggle('on',_spt===t);});
-  var _se=G.cfg.spellSe||'soft';
-  ['off','soft','click','beep'].forEach(function(s){if(el('SE-'+s))el('SE-'+s).classList.toggle('on',_se===s);});
   /* 🗣️ 読み上げの声セレクタ */
   try{voiceFillSelect();}catch(e){}
   if(el('IN-ebbing-max'))el('IN-ebbing-max').value = G.cfg.ebbingMax || 5;
@@ -7241,27 +7208,6 @@ function bind(){
         G.cfg.quickSec=n;
         [3,5,7].forEach(function(m){if(el('QS-'+m))el('QS-'+m).classList.toggle('on',m===n);});
         save();
-      });
-    });
-  }
-  if(el('TG-spell')){
-    el('TG-spell').addEventListener('click',function(){G.cfg.spell=!G.cfg.spell;this.classList.toggle('on',!!G.cfg.spell);save();});
-    el('ROW-spell').addEventListener('click',function(e){if(e.target!==el('TG-spell'))el('TG-spell').click();});    ['build','choice','both'].forEach(function(t){
-      var b=el('SPT-'+t);if(!b)return;
-      b.addEventListener('click',function(){
-        G.cfg.spellType=t;
-        ['build','choice','both'].forEach(function(u){if(el('SPT-'+u))el('SPT-'+u).classList.toggle('on',u===t);});
-        save();
-      });
-    });
-    ['off','soft','click','beep'].forEach(function(s){
-      var b=el('SE-'+s);if(!b)return;
-      b.addEventListener('click',function(){
-        G.cfg.spellSe=s;
-        ['off','soft','click','beep'].forEach(function(u){if(el('SE-'+u))el('SE-'+u).classList.toggle('on',u===s);});
-        save();
-        /* 試聴 */
-        seTap();setTimeout(seBuzz,300);
       });
     });
   }
