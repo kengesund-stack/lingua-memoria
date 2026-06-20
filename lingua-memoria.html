@@ -4408,19 +4408,30 @@ function flRender(){
       if(!text||!text.trim()||!window.speechSynthesis){
         setTimeout(next,50);return;
       }
-      /* iOS等でonend/onerrorが発火しないことがあるため、二重防止＋ウォッチドッグで必ず先へ進む */
+      /* iOS等でonend/onerrorが発火しないことがある。その保険としてのみウォッチドッグを使う。
+         ただし発話中は絶対に打ち切らない（音声が途切れる原因になる）。 */
       var advanced=false;
       function go(){ if(advanced)return; advanced=true; if(FL.token===token)next(); }
       var u=new SpeechSynthesisUtterance(text);
       SPEAK_KEEP=u; /* GC破棄防止 */
-      u.lang=lang; u.rate=0.9;
+      var rate=0.9;
+      u.lang=lang; u.rate=rate;
       applyVoice(u,lang);
       u.onstart=function(){duckStart();};
       u.onend=function(){duckEnd();go();};
       u.onerror=function(){duckEnd();go();};
-      /* 推定読み上げ時間＋余裕でフォールバック（発話が終わらない/コールバック不発でも進む） */
-      var est=1200+text.length*120;
-      setTimeout(function(){ if(!advanced){ try{window.speechSynthesis.cancel();}catch(e){} duckEnd(); go(); } }, est);
+      /* 読み上げ時間を読み上げ速度も考慮して長めに見積もる。日本語/英語とも余裕を持たせる。
+         この時間が来ても、まだ発話中(speaking)なら打ち切らず、さらに待つ。発話していなければ
+         （コールバック不発の異常時）だけ次へ進む。cancel()は呼ばない（音声を切らない）。 */
+      var est=(2500+text.length*220)/rate;
+      function watchdog(){
+        if(advanced)return;
+        var speaking=false;
+        try{ speaking=window.speechSynthesis.speaking||window.speechSynthesis.pending; }catch(e){}
+        if(speaking){ setTimeout(watchdog, 1000); return; } /* まだ喋っている→待つ */
+        duckEnd(); go(); /* 喋っておらずコールバックも来ない→保険で前進 */
+      }
+      setTimeout(watchdog, est);
       try{ window.speechSynthesis.speak(u); }catch(e){ go(); }
     }
 
