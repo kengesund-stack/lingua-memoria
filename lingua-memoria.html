@@ -1029,6 +1029,13 @@ schön,美しい"></textarea>
           <button class="opt-btn" data-qs="7" id="QS-7" style="padding:5px 10px;font-size:12px">7秒</button>
         </div>
       </div>
+      <div class="set-row" id="ROW-ph-eng2eng">
+        <span class="set-lbl">🔤 英英（英単語→英語の意味）</span>
+        <button class="toggle" id="TG-ph-eng2eng"></button>
+      </div>
+      <div class="set-row" style="cursor:default">
+        <span class="set-lbl" style="font-size:11px;color:var(--tx2);line-height:1.6">維持クイックの後に出題されます。英語定義(def)が登録された単語のみが対象です（既定OFF）。</span>
+      </div>
     </div>
     <div class="set-sec">✏️ スペルモード（覚える）</div>
     <div class="set-group">
@@ -1407,6 +1414,24 @@ function save(){
 }
 
 /* ── ファイル保存（HTMLにデータ埋め込み） ── */
+/* ファイル名として安全な文字列に変換（記号・スペースを整理） */
+function safeFileName(name, fallback){
+  var s=(name||'').toString().trim();
+  /* ファイル名に使えない文字を全角・半角問わず除去/置換 */
+  s=s.replace(/[\\\/:*?"<>|]/g,'').replace(/\s+/g,'_').replace(/_+/g,'_').replace(/^_+|_+$/g,'');
+  if(!s)s=(fallback||'export');
+  /* 長すぎる名前は安全のため切り詰め */
+  if(s.length>60)s=s.slice(0,60);
+  return s;
+}
+/* 選択中リストから出力ファイル名のベースを決める。
+   1件選択ならそのリスト名、複数選択なら「(先頭リスト名)+他N件」、
+   全体なら'LinguaMemoria_all' を使う。 */
+function exportBaseName(lists){
+  if(!lists||!lists.length)return 'LinguaMemoria';
+  if(lists.length===1)return safeFileName(lists[0].name,'list');
+  return safeFileName(lists[0].name,'list')+'_他'+(lists.length-1)+'件';
+}
 function saveAsFile(){
   G._savedAt=Date.now();
   sSet(G);
@@ -1421,7 +1446,10 @@ function saveAsFile(){
   var blob=new Blob([updated],{type:'text/html;charset=utf-8'});
   var a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='lingua-memoria.html';
+  /* ファイル名: 単語集（リスト）が1つだけならその名前、複数/0ならアプリ名 */
+  var fn='lingua-memoria';
+  if(G.lists&&G.lists.length===1){fn=safeFileName(G.lists[0].name,'lingua-memoria');}
+  a.download=fn+'.html';
   a.click();
   URL.revokeObjectURL(a.href);
   /* 保存完了 → バナーを非表示 */
@@ -5980,6 +6008,7 @@ var PHASE_DEFS=[
   {id:'build',   badge:'③ 組み立て',    enabled:function(){return (G.cfg.stgPhases||{}).build   !==false;}, spell:true},
   {id:'type',    badge:'④ タイピング',  enabled:function(){return (G.cfg.stgPhases||{}).type    !==false;}, spell:false},
   {id:'quick',   badge:'⑤ 維持クイック',enabled:function(){return (G.cfg.stgPhases||{}).quick   !==false;}, spell:false},
+  {id:'eng2eng', badge:'⑥ 英英',         enabled:function(){return (G.cfg.stgPhases||{}).eng2eng ===true;}, spell:false, defOnly:true},
 ];
 
 function stagesOn(){return G.cfg.stages===true&&!Q.testMode;}
@@ -6011,6 +6040,15 @@ function qNextPhase(){
     if(!pd.enabled())continue;
     /* スペル系フェーズは対象語のみ、それ以外は全単語 */
     var words=pd.spell?Q.words.filter(canSpellWord):Q.words.slice();
+    /* 英英フェーズ: 英語定義(def)がある単語のみ出題。
+       選択肢もdefから作るため、def付きが4語未満ならフェーズをスキップ。 */
+    if(pd.defOnly){
+      words=words.filter(function(w){return w.def&&w.def.trim();});
+      if(words.length<4){
+        if(words.length>0)toast('英英クイズは英語定義のある単語が4語以上必要です（スキップ）');
+        continue;
+      }
+    }
     /* typeフェーズ: quickで降格した単語を先頭に追加 */
     if(pd.id==='type'&&Q._quickFail&&Q._quickFail.length){
       var qfIds=words.map(function(w){return w.id;});
@@ -6526,17 +6564,19 @@ function qRender(){
   }
 
   /* 📶 段階別学習モードON: phaseIdに応じて出題形式を切り替え */
+  var useDef=false; /* 英英フェーズ: 選択肢を英語定義(def)から作る */
   if(stagesOn()&&Q.phaseId){
     var _pid=Q.phaseId;
     Q.curStage=_pid;
     if(_pid==='spellsel'){Q.rev=false;qRenderSpell(q,'choice');return;}
     if(_pid==='build')   {Q.rev=false;qRenderSpell(q,'build');return;}
     if(_pid==='type')    {Q.rev=false;qRenderType(q);return;}
-    /* choice4 / quick → 下の4択描画へ（revなし、quickはタイマーを末尾で起動） */
+    if(_pid==='eng2eng') {useDef=true;}
+    /* choice4 / quick / eng2eng → 下の4択描画へ（revなし、quickはタイマーを末尾で起動） */
     rev=false;Q.rev=false;
   }
 
-  el('QZ-badge').textContent=rev?(l?l.name:'外国語')+'を選べ':'日本語を選べ';
+  el('QZ-badge').textContent=useDef?'英語の意味を選べ':(rev?(l?l.name:'外国語')+'を選べ':'日本語を選べ');
   var displayWord=rev?(q.meaning||q.word):q.word;
   el('QZ-word').textContent=displayWord;
   Q.done=false;
@@ -6558,19 +6598,19 @@ function qRender(){
     if(window.speechSynthesis)window.speechSynthesis.cancel();
   }
 
-  var ca=rev?q.word:(q.meaning||'（訳なし）');
+  var ca=useDef?(q.def||'（定義なし）'):(rev?q.word:(q.meaning||'（訳なし）'));
 
   /* 熟語/単語を区別してダミー選択肢を選ぶ */
   var qIsPhrase=isPhrase(q.word);
   var sameLang=G.words.filter(function(w){
-    return w.id!==q.id&&(w.lang||'en')===(q.lang||'en')&&isPhrase(w.word)===qIsPhrase;
+    return w.id!==q.id&&(w.lang||'en')===(q.lang||'en')&&isPhrase(w.word)===qIsPhrase&&(!useDef||(w.def&&w.def.trim()));
   });
-  /* 同種類が3件未満なら熟語/単語タイプの区別を緩和（言語は維持） */
+  /* 同種類が3件未満なら熟語/単語タイプの区別を緩和（言語は維持、英英ならdefありに限定） */
   if(sameLang.length<3){
-    sameLang=G.words.filter(function(w){return w.id!==q.id&&(w.lang||'en')===(q.lang||'en');});
+    sameLang=G.words.filter(function(w){return w.id!==q.id&&(w.lang||'en')===(q.lang||'en')&&(!useDef||(w.def&&w.def.trim()));});
   }
   /* 同言語が3件未満でも言語フィルターを維持する（他言語は混入させない） */
-  var others=sameLang.length>=3?sameLang:G.words.filter(function(w){return w.id!==q.id&&(w.lang||'en')===(q.lang||'en');});
+  var others=sameLang.length>=3?sameLang:G.words.filter(function(w){return w.id!==q.id&&(w.lang||'en')===(q.lang||'en')&&(!useDef||(w.def&&w.def.trim()));});
   /* ダミー選択肢：訳語が正解・他の選択肢と重複しないよう除外してから3件取る */
   var usedMeanings={};
   usedMeanings[ca]=true; /* 正解の訳語を使用済みに登録 */
@@ -6578,7 +6618,7 @@ function qRender(){
   var shuffled=shuffle(others);
   for(var _di=0;_di<shuffled.length&&dist.length<3;_di++){
     var _dw=shuffled[_di];
-    var _dm=rev?_dw.word:(_dw.meaning||_dw.word);
+    var _dm=useDef?(_dw.def||_dw.word):(rev?_dw.word:(_dw.meaning||_dw.word));
     /* 完全一致・先頭部分一致（カンマ区切りの最初の訳語）でも重複とみなす */
     var _dmNorm=_dm.split(/[,、]/)[0].trim();
     var _caNorm=ca.split(/[,、]/)[0].trim();
@@ -6872,7 +6912,8 @@ function settingsLoad(){
   var _phCfg=G.cfg.stgPhases||{};
   PHASE_DEFS.forEach(function(p){
     var b=el('TG-ph-'+p.id);
-    if(b)b.classList.toggle('on',_phCfg[p.id]!==false);
+    /* 各フェーズの既定に従う（eng2engは既定OFF、その他は既定ON）。enabled()で判定。 */
+    if(b)b.classList.toggle('on',p.enabled());
   });
   var _qs=G.cfg.quickSec||5;
   [3,5,7].forEach(function(n){if(el('QS-'+n))el('QS-'+n).classList.toggle('on',_qs===n);});
@@ -7165,9 +7206,11 @@ function bind(){
       if(!b)return;
       b.addEventListener('click',function(){
         if(!G.cfg.stgPhases)G.cfg.stgPhases={};
-        var cur=G.cfg.stgPhases[p.id]!==false;
-        G.cfg.stgPhases[p.id]=!cur;
-        b.classList.toggle('on',!cur);
+        /* 現在の有効状態は各フェーズの既定を踏まえて判定（eng2engは既定OFF） */
+        var cur=p.enabled();
+        var next=!cur;
+        G.cfg.stgPhases[p.id]=next;
+        b.classList.toggle('on',next);
         save();
       });
       if(r)r.addEventListener('click',function(e){if(e.target!==b)b.click();});
@@ -7317,7 +7360,7 @@ function bind(){
 
   /* 全データJSON */
   el('B-export').addEventListener('click',function(){
-    dlJson(G,'vocabmaster_backup.json');
+    dlJson(G,'LinguaMemoria_backup.json');
     toast('✅ エクスポート完了');
   });
 
@@ -7352,20 +7395,21 @@ function bind(){
         var lgLids=lg.lids||[];
         return lgLids.some(function(lid){return ids.indexOf(lid)>=0;});
       });
-      dlJson({words:words,lists:lists,logs:selLogs,cfg:G.cfg,stats:G.stats}, 'vocabmaster_lists.json');
+      dlJson({words:words,lists:lists,logs:selLogs,cfg:G.cfg,stats:G.stats}, exportBaseName(lists)+'.json');
       el('modal-bg').classList.remove('on');toast('✅ エクスポート完了');
     });
     el('EXP-csv-sel').addEventListener('click',function(){
       var ids=getSelected();if(!ids.length){toast('リストを選択してください');return;}
       var words=G.words.filter(function(w){return ids.indexOf(w.lid)>=0;});
-      exportCsv(words,'vocabmaster_lists.csv');
+      var selLists=G.lists.filter(function(l){return ids.indexOf(l.id)>=0;});
+      exportCsv(words,exportBaseName(selLists)+'.csv');
       el('modal-bg').classList.remove('on');toast('✅ CSVエクスポート完了');
     });
   });
 
   /* 全データCSV */
   el('B-export-csv').addEventListener('click',function(){
-    exportCsv(G.words,'vocabmaster_all.csv');
+    exportCsv(G.words,'LinguaMemoria_all.csv');
     toast('✅ CSVエクスポート完了');
   });
 
@@ -7638,10 +7682,10 @@ function dlJson(data, fname){
 
 function exportCsv(words, fname){
   var bom='\uFEFF'; /* BOM: ExcelでUTF-8が文字化けしないように */
-  var rows=[['word','meaning','lang','list']];
+  var rows=[['word','meaning','def','lang','list']];
   words.forEach(function(w){
     var lst=G.lists.find(function(l){return l.id===w.lid;});
-    rows.push([w.word, w.meaning||'', w.lang||'en', lst?lst.name:'']);
+    rows.push([w.word, w.meaning||'', w.def||'', w.lang||'en', lst?lst.name:'']);
   });
   var csv=bom+rows.map(function(r){
     return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');
