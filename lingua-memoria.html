@@ -1301,6 +1301,18 @@ function applyTheme(){
     accHex='#5cf8fc'; /* 既定のシアン（暗い背景向け） */
   }
   rootStyle.setProperty('--ac3', accHex);
+  /* 正誤などのステータス色（緑=正解, 赤=不正解, オレンジ=注意）。
+     既定の鮮やかな色は暗い背景向けで、明るい背景だと薄くて見えにくい。
+     背景が明るいときは濃いめ・はっきりした色に切り替えて視認性を保つ。 */
+  if(bgLight){
+    rootStyle.setProperty('--gn', '#0a7d3b'); /* 濃い緑（白地で読みやすい） */
+    rootStyle.setProperty('--rd', '#cc1c39'); /* 濃い赤 */
+    rootStyle.setProperty('--or', '#a85708'); /* 濃いオレンジ */
+  } else {
+    rootStyle.setProperty('--gn', '#4cff91'); /* 既定（暗背景向け） */
+    rootStyle.setProperty('--rd', '#ff4c6a');
+    rootStyle.setProperty('--or', '#ff9c4c');
+  }
 }
 /* テーマプリセット（背景, 文字） */
 var THEME_PRESETS=[
@@ -2357,11 +2369,9 @@ function deleteList(lid){
 
 /* ADD */
 var addMode='paste', prevWords=[], selLang='en', selLevel='all', selType='words', selMeanLang='ja';
-var lastImportFileBase=''; /* 直近に読み込んだファイル名（拡張子なし）。リスト名のフォールバックに使う */
 
 function segSwitch(mode){
   addMode=mode;
-  if(mode!=='file')lastImportFileBase=''; /* ファイル以外のタブでは直近ファイル名を無効化 */
   ['paste','file','ai'].forEach(function(m){el('TP-'+m).style.display=m===mode?'block':'none';el('SG-'+m).classList.toggle('on',m===mode);});
   prvHide();
 }
@@ -2531,9 +2541,7 @@ function handleFile(evt){
   var f=evt.target.files[0];if(!f)return;evt.target.value='';
   var ext=f.name.split('.').pop().toLowerCase();
   var ni=el('IN-file-name');
-  lastImportFileBase=f.name.replace(/\.[^.]+$/,'').trim(); /* リスト名フォールバック用に記録 */
-  /* ファイル名をリスト名候補として常にセット（ファイル名最優先） */
-  if(ni)ni.value=f.name.replace(/\.[^.]+$/,'');
+  if(ni&&!ni.value)ni.value=f.name.replace(/\.[^.]+$/,'');
 
   if(fileMode==='json'||ext==='json'){
     var fr=new FileReader();
@@ -2720,17 +2728,11 @@ function jsonImport(text, fname){
     var d=JSON.parse(text);
   }catch(e){toast('❌ JSONの解析に失敗しました。形式を確認してください。');return;}
 
-  /* リスト名: ファイル名を最優先。ファイル名が渡されていればそれを使い、
-     無い場合（テキスト貼り付け等）のみ book_title/title/name を使う。 */
+  /* book_title からリスト名を自動設定 */
   var ni=el('IN-file-name');
   if(ni){
-    var fileBase=fname?fname.replace(/\.[^.]+$/,'').trim():'';
-    if(fileBase){
-      ni.value=fileBase;            /* ファイル名を最優先（既存の値も上書き） */
-    }else if(!ni.value){
-      var autoName=d.book_title||d.title||d.name||'';
-      if(autoName)ni.value=autoName; /* 貼り付け時など、ファイル名が無いときのみ */
-    }
+    var autoName=d.book_title||d.title||d.name||fname.replace(/\.[^.]+$/,'');
+    if(autoName&&!ni.value)ni.value=autoName;
   }
 
   /* 単語配列を取り出す汎用関数 */
@@ -3228,10 +3230,7 @@ function saveList(){
   if(!prevWords.length)return;
   var nameMap={paste:'IN-paste-name',file:'IN-file-name',ai:'IN-ai-name'};
   var ni=el(nameMap[addMode]||'IN-paste-name');
-  /* リスト名の優先順位: 入力欄の値 → 直近ファイル名 → 言語別の既定名 */
-  var listName=(ni&&ni.value.trim())
-    || (lastImportFileBase&&lastImportFileBase.trim())
-    || ((LANGS[selLang]?LANGS[selLang].name:'')+'リスト '+(G.lists.length+1));
+  var listName=(ni&&ni.value.trim())||((LANGS[selLang]?LANGS[selLang].name:'')+'リスト '+(G.lists.length+1));
   var lst=null;
   for(var i=0;i<G.lists.length;i++){if(G.lists[i].name===listName){lst=G.lists[i];break;}}
   if(!lst){
@@ -3253,7 +3252,6 @@ function saveList(){
   });
   save();prvHide();
   if(ni)ni.value='';
-  lastImportFileBase=''; /* 取り込み完了 → 直近ファイル名をリセット */
   var ta=el(addMode==='paste'?'IN-paste-text':addMode==='ai'?'IN-ai-text':'IN-paste-text');if(ta)ta.value='';
   toast('✅ '+added+'単語を「'+listName+'」に追加しました');
   /* APIキーがあれば英語定義を非同期で生成してバックグラウンドで保存 */
@@ -7431,16 +7429,11 @@ function bind(){
   el('B-import-row').addEventListener('click',function(){el('IN-import').click();});
   el('IN-import').addEventListener('change',function(e){
     var f=e.target.files[0];if(!f)return;
-    var importFileBase=f.name.replace(/\.[^.]+$/,'').trim(); /* 拡張子を除いたファイル名 */
     var fr=new FileReader();
     fr.onload=function(ev){
       try{
         var d=JSON.parse(ev.target.result);
         if(!d.words||!d.lists)throw 0;
-        /* ファイル名最優先: リストが1つだけの復元ファイルなら、その名前をファイル名にする */
-        if(importFileBase&&d.lists.length===1){
-          d.lists[0].name=importFileBase;
-        }
         /* 追加統合: 既存IDと重複しないものだけ追加 */
         var existListIds=G.lists.map(function(l){return l.id;});
         var existWordIds=G.words.map(function(w){return w.id;});
