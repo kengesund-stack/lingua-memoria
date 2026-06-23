@@ -951,6 +951,13 @@ schön,美しい"></textarea>
         <span class="set-lbl">🔊 クイズ時に自動読み上げ</span>
         <button class="toggle" id="TG-speak"></button>
       </div>
+      <div class="set-row" id="ROW-webtts">
+        <span class="set-lbl">🌐 Web発音を優先（オンライン）</span>
+        <button class="toggle" id="TG-webtts"></button>
+      </div>
+      <div class="set-row" style="cursor:default">
+        <span class="set-lbl" style="font-size:11px;color:var(--tx2);line-height:1.6">オンラインの発音音声を優先して使い、より正確に発音します。取得できないとき（オフライン・読み込み失敗など）は自動で端末内蔵の音声に切り替わります。内蔵音声だけを使いたい場合はオフにしてください。</span>
+      </div>
       <div class="set-row" style="cursor:default;flex-wrap:wrap;gap:8px" id="ROW-voice">
         <span class="set-lbl" style="width:100%">🗣️ 読み上げの声</span>
         <div style="display:flex;gap:6px;align-items:center;width:100%;flex-wrap:wrap">
@@ -1230,6 +1237,7 @@ if(G.cfg.themeAcc===undefined) G.cfg.themeAcc='auto';
 /* 予習フェーズの自動再生・自動クイズ移行は既定ON（手動でOFFにも切替可） */
 if(G.cfg.flashAuto===undefined) G.cfg.flashAuto=true;
 if(G.cfg.autoQuiz===undefined) G.cfg.autoQuiz=true;
+if(G.cfg.webTTS===undefined) G.cfg.webTTS=true; /* Web発音(オンライン)を優先。失敗時は内蔵音声 */
 if(!G.cfg.dictUrls) G.cfg.dictUrls={en:'https://ejje.weblio.jp/content/{word}',de:'https://www.duden.de/rechtschreibung/{word}',fr:'https://fjjf.weblio.jp/content/{word}',es:'',it:''};
 if(!G.cfg.dictUrls.en) G.cfg.dictUrls.en='https://ejje.weblio.jp/content/{word}';
 if(!G.cfg.dictUrls.de) G.cfg.dictUrls.de='https://www.duden.de/rechtschreibung/{word}';
@@ -1301,18 +1309,6 @@ function applyTheme(){
     accHex='#5cf8fc'; /* 既定のシアン（暗い背景向け） */
   }
   rootStyle.setProperty('--ac3', accHex);
-  /* 正誤などのステータス色（緑=正解, 赤=不正解, オレンジ=注意）。
-     既定の鮮やかな色は暗い背景向けで、明るい背景だと薄くて見えにくい。
-     背景が明るいときは濃いめ・はっきりした色に切り替えて視認性を保つ。 */
-  if(bgLight){
-    rootStyle.setProperty('--gn', '#0a7d3b'); /* 濃い緑（白地で読みやすい） */
-    rootStyle.setProperty('--rd', '#cc1c39'); /* 濃い赤 */
-    rootStyle.setProperty('--or', '#a85708'); /* 濃いオレンジ */
-  } else {
-    rootStyle.setProperty('--gn', '#4cff91'); /* 既定（暗背景向け） */
-    rootStyle.setProperty('--rd', '#ff4c6a');
-    rootStyle.setProperty('--or', '#ff9c4c');
-  }
 }
 /* テーマプリセット（背景, 文字） */
 var THEME_PRESETS=[
@@ -4275,7 +4271,57 @@ function duckEnd(){
 /* iOS/SafariはUtteranceへの参照が無いとGCで破棄して再生が止まる/鳴らない
    バグがあるため、グローバルに参照を保持する */
 var SPEAK_KEEP=null;
+/* 現在再生中のWeb発音Audio（重複再生を止めるため保持） */
+var WEB_TTS_AUDIO=null;
+var WEB_TTS_FAILS=0; /* 連続失敗回数。一定回数を超えたらしばらくWeb発音を休止 */
+var WEB_TTS_PAUSED_UNTIL=0;
+
+/* 公開TTSエンドポイントの音声URLを作る（Google翻訳のTTS）。
+   非公式のため仕様変更で使えなくなる可能性があるが、その場合は内蔵音声へフォールバックする。 */
+function webTtsUrl(text, lang){
+  var code=(LANG_VOICE[lang||'en']||'en-US').split('-')[0];
+  return 'https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl='+
+         encodeURIComponent(code)+'&q='+encodeURIComponent(text);
+}
+
+/* 発音の入口。Web発音(オンライン)を優先し、失敗・無効時は内蔵音声にフォールバックする。 */
 function speak(text, lang){
+  if(!text||!text.trim())return;
+  lang=lang||'en';
+  var useWeb = (G.cfg&&G.cfg.webTTS!==false) && navigator.onLine!==false && Date.now()>WEB_TTS_PAUSED_UNTIL;
+  if(!useWeb){ speakBuiltin(text,lang); return; }
+  /* 直前のWeb発音を止める */
+  try{ if(WEB_TTS_AUDIO){WEB_TTS_AUDIO.pause();WEB_TTS_AUDIO=null;} }catch(e){}
+  /* 内蔵音声も鳴っていれば止める（二重再生防止） */
+  try{ if(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending))speechSynthesis.cancel(); }catch(e){}
+  var done=false;
+  var audio=new Audio();
+  WEB_TTS_AUDIO=audio;
+  function fallback(){
+    if(done)return; done=true;
+    if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null;
+    WEB_TTS_FAILS++;
+    /* 失敗が続くなら一定時間Web発音を休止し、内蔵音声に任せる */
+    if(WEB_TTS_FAILS>=3){ WEB_TTS_PAUSED_UNTIL=Date.now()+60000; WEB_TTS_FAILS=0; }
+    speakBuiltin(text,lang);
+  }
+  function ok(){ if(done)return; done=true; WEB_TTS_FAILS=0; clearTimeout(to); duckStart(); }
+  /* 読み込み・再生できなかった場合のフォールバック */
+  audio.onerror=fallback;
+  audio.onstalled=fallback;
+  audio.onplaying=ok;
+  audio.onended=function(){ if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null; duckEnd(); };
+  /* タイムアウト（再生が始まらなければ内蔵へ） */
+  var to=setTimeout(function(){ if(!done && (audio.readyState<2)) { try{audio.pause();}catch(e){} fallback(); } }, 2500);
+  try{
+    audio.src=webTtsUrl(text,lang);
+    var p=audio.play();
+    if(p&&p.catch)p.catch(function(){ clearTimeout(to); fallback(); });
+  }catch(e){ clearTimeout(to); fallback(); }
+}
+
+/* 内蔵音声（端末のspeechSynthesis）による発音。Web発音のフォールバック先。 */
+function speakBuiltin(text, lang){
   if(!window.speechSynthesis)return;
   var ss=window.speechSynthesis;
   /* 直前まで再生中だった場合のみキャンセル（不要なcancelは途切れの原因になる） */
@@ -6901,6 +6947,7 @@ function settingsLoad(){
   el('TG-rev').classList.toggle('on',!!G.cfg.rev);
   el('TG-random').classList.toggle('on',!!G.cfg.random);
   el('TG-speak').classList.toggle('on',G.cfg.speak!==false);
+  if(el('TG-webtts'))el('TG-webtts').classList.toggle('on',G.cfg.webTTS!==false);
   el('TG-autonext').classList.toggle('on',!!G.cfg.autonext);
   el('IN-autonext-sec').value=G.cfg.autonextSec||1.5;
   el('TG-flashauto').classList.toggle('on',!!G.cfg.flashAuto);
@@ -7188,6 +7235,14 @@ function bind(){
   el('TG-rev').addEventListener('click',function(){G.cfg.rev=!G.cfg.rev;this.classList.toggle('on',G.cfg.rev);save();});
   el('ROW-rev').addEventListener('click',function(e){if(e.target!==el('TG-rev'))el('TG-rev').click();});
   el('TG-speak').addEventListener('click',function(){G.cfg.speak=!this.classList.contains('on');this.classList.toggle('on',G.cfg.speak);save();});
+  if(el('TG-webtts'))el('TG-webtts').addEventListener('click',function(){
+    G.cfg.webTTS=!this.classList.contains('on');
+    this.classList.toggle('on',G.cfg.webTTS);
+    WEB_TTS_PAUSED_UNTIL=0; WEB_TTS_FAILS=0; /* 切替時に休止状態をリセット */
+    save();
+    toast(G.cfg.webTTS?'🌐 Web発音を優先します（失敗時は内蔵音声）':'内蔵音声のみを使用します');
+  });
+  if(el('ROW-webtts'))el('ROW-webtts').addEventListener('click',function(e){if(el('TG-webtts')&&e.target!==el('TG-webtts'))el('TG-webtts').click();});
   el('ROW-speak').addEventListener('click',function(e){if(e.target!==el('TG-speak'))el('TG-speak').click();});
   /* ✏️ スペルモード設定 */
   /* 📶 段階別学習モード */
