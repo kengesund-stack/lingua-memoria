@@ -4383,30 +4383,62 @@ function sqNext(){
   }
   SQ.busy=true;
   var item=SQ.queue.shift();
-  if(!window.speechSynthesis){SQ.busy=false;sqNext();return;}
+  var lang=item.lang||'en';
+
+  /* このアイテムの再生が終わった（成功・失敗どちらでも）→ 次へ進む */
+  var fired=false;
+  function done(){
+    if(fired)return; fired=true;
+    duckEnd();
+    if(SQ.keepAlive){clearInterval(SQ.keepAlive);SQ.keepAlive=null;}
+    SQ.busy=false;
+    setTimeout(sqNext,80);
+  }
+
+  /* 内蔵音声で再生（Web発音のフォールバック先） */
+  function playBuiltin(){
+    if(!window.speechSynthesis){done();return;}
+    try{window.speechSynthesis.cancel();}catch(e){}
+    setTimeout(function(){
+      var u=new SpeechSynthesisUtterance(item.text);
+      SPEAK_KEEP=u;
+      u.lang=LANG_VOICE[lang]||lang||'en-US';
+      applyVoice(u,lang);
+      u.rate=0.85;
+      u.onstart=function(){duckStart();};
+      u.onend=done;
+      u.onerror=done;
+      window.speechSynthesis.speak(u);
+      SQ.keepAlive=setInterval(function(){
+        if(window.speechSynthesis.paused)window.speechSynthesis.resume();
+      },250);
+    },100);
+  }
+
+  /* Web発音(オンライン)を優先。失敗・無効時は内蔵音声へ。 */
+  var useWeb=(G.cfg&&G.cfg.webTTS!==false)&&navigator.onLine!==false&&Date.now()>WEB_TTS_PAUSED_UNTIL;
+  if(!useWeb){ playBuiltin(); return; }
   try{window.speechSynthesis.cancel();}catch(e){}
-  setTimeout(function(){
-    var u=new SpeechSynthesisUtterance(item.text);
-    SPEAK_KEEP=u; /* GC破棄防止 */
-    u.lang=LANG_VOICE[item.lang]||item.lang||'en-US';
-    applyVoice(u,item.lang||'en');
-    u.rate=0.85;
-    var fired=false;
-    function done(){
-      if(fired)return; fired=true;
-      duckEnd();
-      if(SQ.keepAlive){clearInterval(SQ.keepAlive);SQ.keepAlive=null;}
-      SQ.busy=false;
-      setTimeout(sqNext,80);
-    }
-    u.onstart=function(){duckStart();};
-    u.onend=done;
-    u.onerror=done;
-    window.speechSynthesis.speak(u);
-    SQ.keepAlive=setInterval(function(){
-      if(window.speechSynthesis.paused)window.speechSynthesis.resume();
-    },250);
-  },100);
+  var audio=new Audio();
+  WEB_TTS_AUDIO=audio;
+  var settled=false;
+  function toBuiltin(){
+    if(settled)return; settled=true;
+    if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null;
+    WEB_TTS_FAILS++;
+    if(WEB_TTS_FAILS>=3){WEB_TTS_PAUSED_UNTIL=Date.now()+60000;WEB_TTS_FAILS=0;}
+    playBuiltin(); /* 内蔵音声にフォールバックして、その完了でdone() */
+  }
+  var to=setTimeout(function(){ if(!settled&&audio.readyState<2){try{audio.pause();}catch(e){}toBuiltin();} },2500);
+  audio.onerror=toBuiltin;
+  audio.onstalled=toBuiltin;
+  audio.onplaying=function(){ if(settled)return; settled=true; clearTimeout(to); WEB_TTS_FAILS=0; duckStart(); };
+  audio.onended=function(){ if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null; done(); };
+  try{
+    audio.src=webTtsUrl(item.text,lang);
+    var p=audio.play();
+    if(p&&p.catch)p.catch(function(){clearTimeout(to);toBuiltin();});
+  }catch(e){ clearTimeout(to); toBuiltin(); }
 }
 function speakWithCb(text,lang,cb){sqSpeak(text,lang,cb);}
 function speakJa(text){sqEnqueue([{text:text,lang:'ja'}],null);}
@@ -4436,34 +4468,61 @@ function flRender(){
 
     /* 読み上げ完了後に次フェーズへ進む汎用関数 */
     function sayThen(text, lang, next){
-      if(!text||!text.trim()||!window.speechSynthesis){
+      if(!text||!text.trim()){
         setTimeout(next,50);return;
       }
-      /* iOS等でonend/onerrorが発火しないことがある。その保険としてのみウォッチドッグを使う。
-         ただし発話中は絶対に打ち切らない（音声が途切れる原因になる）。 */
+      /* lang は 'ja-JP' のようなBCP-47コード。Web発音用に短い言語コードを取り出す。 */
+      var shortLang=(lang||'en').split('-')[0];
       var advanced=false;
       function go(){ if(advanced)return; advanced=true; if(FL.token===token)next(); }
-      var u=new SpeechSynthesisUtterance(text);
-      SPEAK_KEEP=u; /* GC破棄防止 */
-      var rate=0.9;
-      u.lang=lang; u.rate=rate;
-      applyVoice(u,lang);
-      u.onstart=function(){duckStart();};
-      u.onend=function(){duckEnd();go();};
-      u.onerror=function(){duckEnd();go();};
-      /* 読み上げ時間を読み上げ速度も考慮して長めに見積もる。日本語/英語とも余裕を持たせる。
-         この時間が来ても、まだ発話中(speaking)なら打ち切らず、さらに待つ。発話していなければ
-         （コールバック不発の異常時）だけ次へ進む。cancel()は呼ばない（音声を切らない）。 */
-      var est=(2500+text.length*220)/rate;
-      function watchdog(){
-        if(advanced)return;
-        var speaking=false;
-        try{ speaking=window.speechSynthesis.speaking||window.speechSynthesis.pending; }catch(e){}
-        if(speaking){ setTimeout(watchdog, 1000); return; } /* まだ喋っている→待つ */
-        duckEnd(); go(); /* 喋っておらずコールバックも来ない→保険で前進 */
+
+      /* 内蔵音声で読み上げ（Web発音のフォールバック先）。コールバック不発に備えウォッチドッグ付き。 */
+      function sayBuiltin(){
+        if(!window.speechSynthesis){ setTimeout(go,50); return; }
+        var u=new SpeechSynthesisUtterance(text);
+        SPEAK_KEEP=u;
+        var rate=0.9;
+        u.lang=lang; u.rate=rate;
+        applyVoice(u,shortLang);
+        u.onstart=function(){duckStart();};
+        u.onend=function(){duckEnd();go();};
+        u.onerror=function(){duckEnd();go();};
+        var est=(2500+text.length*220)/rate;
+        function watchdog(){
+          if(advanced)return;
+          var speaking=false;
+          try{ speaking=window.speechSynthesis.speaking||window.speechSynthesis.pending; }catch(e){}
+          if(speaking){ setTimeout(watchdog,1000); return; }
+          duckEnd(); go();
+        }
+        setTimeout(watchdog, est);
+        try{ window.speechSynthesis.speak(u); }catch(e){ go(); }
       }
-      setTimeout(watchdog, est);
-      try{ window.speechSynthesis.speak(u); }catch(e){ go(); }
+
+      /* Web発音(オンライン)を優先。失敗・無効時は内蔵音声へ。完了時は必ずgo()で次へ。 */
+      var useWeb=(G.cfg&&G.cfg.webTTS!==false)&&navigator.onLine!==false&&Date.now()>WEB_TTS_PAUSED_UNTIL;
+      if(!useWeb){ sayBuiltin(); return; }
+      try{ if(window.speechSynthesis)window.speechSynthesis.cancel(); }catch(e){}
+      var audio=new Audio();
+      WEB_TTS_AUDIO=audio;
+      var settled=false;
+      function toBuiltin(){
+        if(settled)return; settled=true;
+        if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null;
+        WEB_TTS_FAILS++;
+        if(WEB_TTS_FAILS>=3){WEB_TTS_PAUSED_UNTIL=Date.now()+60000;WEB_TTS_FAILS=0;}
+        sayBuiltin();
+      }
+      var to=setTimeout(function(){ if(!settled&&audio.readyState<2){try{audio.pause();}catch(e){}toBuiltin();} },2500);
+      audio.onerror=toBuiltin;
+      audio.onstalled=toBuiltin;
+      audio.onplaying=function(){ if(settled)return; settled=true; clearTimeout(to); WEB_TTS_FAILS=0; duckStart(); };
+      audio.onended=function(){ if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null; duckEnd(); go(); };
+      try{
+        audio.src=webTtsUrl(text,shortLang);
+        var p=audio.play();
+        if(p&&p.catch)p.catch(function(){clearTimeout(to);toBuiltin();});
+      }catch(e){ clearTimeout(to); toBuiltin(); }
     }
 
     /* ③ 両方完了後に設定秒数待って次へ */
