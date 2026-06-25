@@ -5819,6 +5819,7 @@ function qInit(words, opts){
     sessionStart:Date.now(),
     consec:{},mastered:0,masteredIds:{},
     ebbingIds:opts.ebbingIds||{},
+    forceSimple:!!opts.forceSimple, /* 4択のみ強制（新出の復習）。段階別フェーズへ移行しない */
     phaseId:isStages?'__init__':null, /* __init__は「フェーズ前」の印 */
     _quickFail:[]
   };
@@ -6013,7 +6014,7 @@ var PHASE_DEFS=[
   {id:'eng2eng', badge:'⑥ 英英',         enabled:function(){return (G.cfg.stgPhases||{}).eng2eng ===true;}, spell:false, defOnly:true},
 ];
 
-function stagesOn(){return G.cfg.stages===true&&!Q.testMode;}
+function stagesOn(){return G.cfg.stages===true&&!Q.testMode&&!Q.forceSimple;}
 
 /* フェーズを開始する共通処理 */
 function qStartPhase(phaseId,words){
@@ -6072,8 +6073,8 @@ function qMaybeSpellPhase(){
   if(stagesOn()){
     qNextPhase();return;
   }
-  /* 旧スペル一括ラウンド（段階別OFFの場合のみ） */
-  if(G.cfg.spell&&!Q.testMode&&!stagesOn()){
+  /* 旧スペル一括ラウンド（段階別OFFの場合のみ。新出の復習(forceSimple)では出さない） */
+  if(G.cfg.spell&&!Q.testMode&&!stagesOn()&&!Q.forceSimple){
     if(!Q.spellStages){
       var t=G.cfg.spellType||'both';
       Q.spellStages=(t==='both')?['build','choice']:[t];
