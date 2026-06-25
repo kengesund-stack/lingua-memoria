@@ -951,13 +951,6 @@ schön,美しい"></textarea>
         <span class="set-lbl">🔊 クイズ時に自動読み上げ</span>
         <button class="toggle" id="TG-speak"></button>
       </div>
-      <div class="set-row" id="ROW-webtts">
-        <span class="set-lbl">🌐 ネイティブ発音を優先（英語）</span>
-        <button class="toggle" id="TG-webtts"></button>
-      </div>
-      <div class="set-row" style="cursor:default">
-        <span class="set-lbl" style="font-size:11px;color:var(--tx2);line-height:1.6">英単語は辞書のネイティブ発音音声を優先して使い、より正確に発音します。音声が見つからない単語・熟語や、英語以外の言語、オフライン時は自動で端末内蔵の音声に切り替わります。内蔵音声だけを使いたい場合はオフにしてください。</span>
-      </div>
       <div class="set-row" style="cursor:default;flex-wrap:wrap;gap:8px" id="ROW-voice">
         <span class="set-lbl" style="width:100%">🗣️ 読み上げの声</span>
         <div style="display:flex;gap:6px;align-items:center;width:100%;flex-wrap:wrap">
@@ -1237,7 +1230,6 @@ if(G.cfg.themeAcc===undefined) G.cfg.themeAcc='auto';
 /* 予習フェーズの自動再生・自動クイズ移行は既定ON（手動でOFFにも切替可） */
 if(G.cfg.flashAuto===undefined) G.cfg.flashAuto=true;
 if(G.cfg.autoQuiz===undefined) G.cfg.autoQuiz=true;
-if(G.cfg.webTTS===undefined) G.cfg.webTTS=true; /* Web発音(オンライン)を優先。失敗時は内蔵音声 */
 if(!G.cfg.dictUrls) G.cfg.dictUrls={en:'https://ejje.weblio.jp/content/{word}',de:'https://www.duden.de/rechtschreibung/{word}',fr:'https://fjjf.weblio.jp/content/{word}',es:'',it:''};
 if(!G.cfg.dictUrls.en) G.cfg.dictUrls.en='https://ejje.weblio.jp/content/{word}';
 if(!G.cfg.dictUrls.de) G.cfg.dictUrls.de='https://www.duden.de/rechtschreibung/{word}';
@@ -4271,86 +4263,7 @@ function duckEnd(){
 /* iOS/SafariはUtteranceへの参照が無いとGCで破棄して再生が止まる/鳴らない
    バグがあるため、グローバルに参照を保持する */
 var SPEAK_KEEP=null;
-/* 現在再生中のWeb発音Audio（重複再生を止めるため保持） */
-var WEB_TTS_AUDIO=null;
-var WEB_TTS_FAILS=0; /* 連続失敗回数。一定回数を超えたらしばらくWeb発音を休止 */
-var WEB_TTS_PAUSED_UNTIL=0;
-
-/* 辞書発音API(dictionaryapi.dev)から英単語の発音音声URLを取得する。
-   ・英語のみ対応（他言語・熟語・未収録語はnullを返し、内蔵音声にフォールバック）
-   ・CORS対応のため、ブラウザから安全に利用できる
-   結果はキャッシュして、同じ単語の再取得を避ける。 */
-var DICT_AUDIO_CACHE={}; /* word(小文字) -> url または '' (無し) */
-function dictAudioCacheKey(text, lang){ return (lang||'en')+'|'+(text||'').trim().toLowerCase(); }
-/* コールバックで音声URL（無ければnull）を返す */
-function resolveWebAudio(text, lang, cb){
-  lang=lang||'en';
-  /* 英語以外は辞書APIに無いので即フォールバック */
-  if(lang!=='en'){ cb(null); return; }
-  var word=(text||'').trim();
-  /* 1語の見出し語のみ対象（スペースを含む熟語・文は辞書に無いことが多い→内蔵音声へ） */
-  if(!word || /\s/.test(word) || word.length>40){ cb(null); return; }
-  var key=dictAudioCacheKey(word,lang);
-  if(DICT_AUDIO_CACHE.hasOwnProperty(key)){ cb(DICT_AUDIO_CACHE[key]||null); return; }
-  var settled=false;
-  var t=setTimeout(function(){ if(settled)return; settled=true; cb(null); },2500);
-  try{
-    fetch('https://api.dictionaryapi.dev/api/v2/entries/en/'+encodeURIComponent(word.toLowerCase()))
-      .then(function(r){ return r.ok?r.json():null; })
-      .then(function(data){
-        if(settled)return; settled=true; clearTimeout(t);
-        var url='';
-        if(Array.isArray(data)){
-          /* phonetics配列から最初の音声URLを探す */
-          for(var i=0;i<data.length&&!url;i++){
-            var ph=data[i].phonetics||[];
-            for(var j=0;j<ph.length;j++){
-              if(ph[j].audio&&/^https?:\/\//.test(ph[j].audio)){ url=ph[j].audio; break; }
-            }
-          }
-        }
-        DICT_AUDIO_CACHE[key]=url; /* 見つからなければ '' をキャッシュ */
-        cb(url||null);
-      })
-      .catch(function(){ if(settled)return; settled=true; clearTimeout(t); DICT_AUDIO_CACHE[key]=''; cb(null); });
-  }catch(e){ if(!settled){settled=true;clearTimeout(t);cb(null);} }
-}
-
-/* 発音の入口。辞書発音(英語)を優先し、無い/失敗時は内蔵音声にフォールバックする。 */
 function speak(text, lang){
-  if(!text||!text.trim())return;
-  lang=lang||'en';
-  var useWeb = (G.cfg&&G.cfg.webTTS!==false) && navigator.onLine!==false;
-  if(!useWeb){ speakBuiltin(text,lang); return; }
-  resolveWebAudio(text, lang, function(url){
-    if(!url){ speakBuiltin(text,lang); return; }
-    playWebAudio(url, function(success){ if(!success) speakBuiltin(text,lang); });
-  });
-}
-
-/* 音声URLを再生。成功/失敗をコールバックで返す。 */
-function playWebAudio(url, cb){
-  try{ if(WEB_TTS_AUDIO){WEB_TTS_AUDIO.pause();WEB_TTS_AUDIO=null;} }catch(e){}
-  try{ if(window.speechSynthesis&&(speechSynthesis.speaking||speechSynthesis.pending))speechSynthesis.cancel(); }catch(e){}
-  var done=false;
-  var audio=new Audio();
-  WEB_TTS_AUDIO=audio;
-  function fail(){ if(done)return; done=true; if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null; if(cb)cb(false); }
-  function ok(){ if(done)return; done=true; clearTimeout(to); duckStart(); }
-  var to=setTimeout(function(){ if(!done&&audio.readyState<2){try{audio.pause();}catch(e){}fail();} },2500);
-  audio.onerror=fail;
-  audio.onstalled=fail;
-  audio.onplaying=ok;
-  audio.onended=function(){ if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null; duckEnd(); };
-  try{
-    audio.src=url;
-    var p=audio.play();
-    if(p&&p.catch)p.catch(function(){ clearTimeout(to); fail(); });
-  }catch(e){ clearTimeout(to); fail(); }
-}
-
-/* 内蔵音声（端末のspeechSynthesis）による発音。Web発音のフォールバック先。 */
-function speakBuiltin(text, lang){
   if(!window.speechSynthesis)return;
   var ss=window.speechSynthesis;
   /* 直前まで再生中だった場合のみキャンセル（不要なcancelは途切れの原因になる） */
@@ -4412,63 +4325,30 @@ function sqNext(){
   }
   SQ.busy=true;
   var item=SQ.queue.shift();
-  var lang=item.lang||'en';
-
-  /* このアイテムの再生が終わった（成功・失敗どちらでも）→ 次へ進む */
-  var fired=false;
-  function done(){
-    if(fired)return; fired=true;
-    duckEnd();
-    if(SQ.keepAlive){clearInterval(SQ.keepAlive);SQ.keepAlive=null;}
-    SQ.busy=false;
-    setTimeout(sqNext,80);
-  }
-
-  /* 内蔵音声で再生（Web発音のフォールバック先） */
-  function playBuiltin(){
-    if(!window.speechSynthesis){done();return;}
-    try{window.speechSynthesis.cancel();}catch(e){}
-    setTimeout(function(){
-      var u=new SpeechSynthesisUtterance(item.text);
-      SPEAK_KEEP=u;
-      u.lang=LANG_VOICE[lang]||lang||'en-US';
-      applyVoice(u,lang);
-      u.rate=0.85;
-      u.onstart=function(){duckStart();};
-      u.onend=done;
-      u.onerror=done;
-      window.speechSynthesis.speak(u);
-      SQ.keepAlive=setInterval(function(){
-        if(window.speechSynthesis.paused)window.speechSynthesis.resume();
-      },250);
-    },100);
-  }
-
-  /* 辞書発音(英語)を優先。無い/失敗/無効時は内蔵音声へ。どちらも完了でdone()→次へ。 */
-  var useWeb=(G.cfg&&G.cfg.webTTS!==false)&&navigator.onLine!==false;
-  if(!useWeb){ playBuiltin(); return; }
-  resolveWebAudio(item.text, lang, function(url){
-    if(!url){ playBuiltin(); return; }
-    try{window.speechSynthesis.cancel();}catch(e){}
-    var audio=new Audio();
-    WEB_TTS_AUDIO=audio;
-    var settled=false;
-    function toBuiltin(){
-      if(settled)return; settled=true;
-      if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null;
-      playBuiltin(); /* 内蔵音声にフォールバックして、その完了でdone() */
+  if(!window.speechSynthesis){SQ.busy=false;sqNext();return;}
+  try{window.speechSynthesis.cancel();}catch(e){}
+  setTimeout(function(){
+    var u=new SpeechSynthesisUtterance(item.text);
+    SPEAK_KEEP=u; /* GC破棄防止 */
+    u.lang=LANG_VOICE[item.lang]||item.lang||'en-US';
+    applyVoice(u,item.lang||'en');
+    u.rate=0.85;
+    var fired=false;
+    function done(){
+      if(fired)return; fired=true;
+      duckEnd();
+      if(SQ.keepAlive){clearInterval(SQ.keepAlive);SQ.keepAlive=null;}
+      SQ.busy=false;
+      setTimeout(sqNext,80);
     }
-    var to=setTimeout(function(){ if(!settled&&audio.readyState<2){try{audio.pause();}catch(e){}toBuiltin();} },2500);
-    audio.onerror=toBuiltin;
-    audio.onstalled=toBuiltin;
-    audio.onplaying=function(){ if(settled)return; settled=true; clearTimeout(to); duckStart(); };
-    audio.onended=function(){ if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null; done(); };
-    try{
-      audio.src=url;
-      var p=audio.play();
-      if(p&&p.catch)p.catch(function(){clearTimeout(to);toBuiltin();});
-    }catch(e){ clearTimeout(to); toBuiltin(); }
-  });
+    u.onstart=function(){duckStart();};
+    u.onend=done;
+    u.onerror=done;
+    window.speechSynthesis.speak(u);
+    SQ.keepAlive=setInterval(function(){
+      if(window.speechSynthesis.paused)window.speechSynthesis.resume();
+    },250);
+  },100);
 }
 function speakWithCb(text,lang,cb){sqSpeak(text,lang,cb);}
 function speakJa(text){sqEnqueue([{text:text,lang:'ja'}],null);}
@@ -4498,62 +4378,34 @@ function flRender(){
 
     /* 読み上げ完了後に次フェーズへ進む汎用関数 */
     function sayThen(text, lang, next){
-      if(!text||!text.trim()){
+      if(!text||!text.trim()||!window.speechSynthesis){
         setTimeout(next,50);return;
       }
-      /* lang は 'ja-JP' のようなBCP-47コード。Web発音用に短い言語コードを取り出す。 */
-      var shortLang=(lang||'en').split('-')[0];
+      /* iOS等でonend/onerrorが発火しないことがある。その保険としてのみウォッチドッグを使う。
+         ただし発話中は絶対に打ち切らない（音声が途切れる原因になる）。 */
       var advanced=false;
       function go(){ if(advanced)return; advanced=true; if(FL.token===token)next(); }
-
-      /* 内蔵音声で読み上げ（Web発音のフォールバック先）。コールバック不発に備えウォッチドッグ付き。 */
-      function sayBuiltin(){
-        if(!window.speechSynthesis){ setTimeout(go,50); return; }
-        var u=new SpeechSynthesisUtterance(text);
-        SPEAK_KEEP=u;
-        var rate=0.9;
-        u.lang=lang; u.rate=rate;
-        applyVoice(u,shortLang);
-        u.onstart=function(){duckStart();};
-        u.onend=function(){duckEnd();go();};
-        u.onerror=function(){duckEnd();go();};
-        var est=(2500+text.length*220)/rate;
-        function watchdog(){
-          if(advanced)return;
-          var speaking=false;
-          try{ speaking=window.speechSynthesis.speaking||window.speechSynthesis.pending; }catch(e){}
-          if(speaking){ setTimeout(watchdog,1000); return; }
-          duckEnd(); go();
-        }
-        setTimeout(watchdog, est);
-        try{ window.speechSynthesis.speak(u); }catch(e){ go(); }
+      var u=new SpeechSynthesisUtterance(text);
+      SPEAK_KEEP=u; /* GC破棄防止 */
+      var rate=0.9;
+      u.lang=lang; u.rate=rate;
+      applyVoice(u,lang);
+      u.onstart=function(){duckStart();};
+      u.onend=function(){duckEnd();go();};
+      u.onerror=function(){duckEnd();go();};
+      /* 読み上げ時間を読み上げ速度も考慮して長めに見積もる。日本語/英語とも余裕を持たせる。
+         この時間が来ても、まだ発話中(speaking)なら打ち切らず、さらに待つ。発話していなければ
+         （コールバック不発の異常時）だけ次へ進む。cancel()は呼ばない（音声を切らない）。 */
+      var est=(2500+text.length*220)/rate;
+      function watchdog(){
+        if(advanced)return;
+        var speaking=false;
+        try{ speaking=window.speechSynthesis.speaking||window.speechSynthesis.pending; }catch(e){}
+        if(speaking){ setTimeout(watchdog, 1000); return; } /* まだ喋っている→待つ */
+        duckEnd(); go(); /* 喋っておらずコールバックも来ない→保険で前進 */
       }
-
-      /* 辞書発音(英語)を優先。無い/失敗/無効時は内蔵音声へ。完了時は必ずgo()で次へ。 */
-      var useWeb=(G.cfg&&G.cfg.webTTS!==false)&&navigator.onLine!==false;
-      if(!useWeb){ sayBuiltin(); return; }
-      resolveWebAudio(text, shortLang, function(url){
-        if(!url){ sayBuiltin(); return; }
-        try{ if(window.speechSynthesis)window.speechSynthesis.cancel(); }catch(e){}
-        var audio=new Audio();
-        WEB_TTS_AUDIO=audio;
-        var settled=false;
-        function toBuiltin(){
-          if(settled)return; settled=true;
-          if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null;
-          sayBuiltin();
-        }
-        var to=setTimeout(function(){ if(!settled&&audio.readyState<2){try{audio.pause();}catch(e){}toBuiltin();} },2500);
-        audio.onerror=toBuiltin;
-        audio.onstalled=toBuiltin;
-        audio.onplaying=function(){ if(settled)return; settled=true; clearTimeout(to); duckStart(); };
-        audio.onended=function(){ if(WEB_TTS_AUDIO===audio)WEB_TTS_AUDIO=null; duckEnd(); go(); };
-        try{
-          audio.src=url;
-          var p=audio.play();
-          if(p&&p.catch)p.catch(function(){clearTimeout(to);toBuiltin();});
-        }catch(e){ clearTimeout(to); toBuiltin(); }
-      });
+      setTimeout(watchdog, est);
+      try{ window.speechSynthesis.speak(u); }catch(e){ go(); }
     }
 
     /* ③ 両方完了後に設定秒数待って次へ */
@@ -5934,6 +5786,14 @@ function quizStart(mode,lid){
 
   if(mainWs.length<2){toast('クイズには最低2単語必要です');return;}
   mainWs.forEach(function(w){delete w._hadMiss;delete w._answerMs;});
+  if(mode==='fresh'){
+    /* 🟢 新出の復習は「軽い復習」：予習なし・段階別なしで4択のみ出題する。
+       他の出題（予習→クイズ等）は従来通り設定に従う。 */
+    qInit(mainWs,{testMode:false,quizMode:'study',forceSimple:true,ebbingIds:ebbingIds});
+    go('s-quiz');
+    qRender();
+    return;
+  }
   /* 予習→クイズと同じ流れ: flashStartに渡して予習から始める */
   flashStart(mainWs, mode, null);
 }
@@ -5948,7 +5808,8 @@ function isPhrase(word){
    OFFの場合は従来通りQ.q=wordsで全単語を4択として出題する */
 function qInit(words, opts){
   opts=opts||{};
-  var isStages=G.cfg.stages===true&&!opts.testMode;
+  /* forceSimple: 段階別学習設定に関係なく、必ず4択のみで出題する（新出の復習用） */
+  var isStages=G.cfg.stages===true&&!opts.testMode&&!opts.forceSimple;
   Q={
     words:words,
     q:isStages?[]:words.slice(), /* 段階別ONは空→qNextPhaseが管理 */
@@ -7037,7 +6898,6 @@ function settingsLoad(){
   el('TG-rev').classList.toggle('on',!!G.cfg.rev);
   el('TG-random').classList.toggle('on',!!G.cfg.random);
   el('TG-speak').classList.toggle('on',G.cfg.speak!==false);
-  if(el('TG-webtts'))el('TG-webtts').classList.toggle('on',G.cfg.webTTS!==false);
   el('TG-autonext').classList.toggle('on',!!G.cfg.autonext);
   el('IN-autonext-sec').value=G.cfg.autonextSec||1.5;
   el('TG-flashauto').classList.toggle('on',!!G.cfg.flashAuto);
@@ -7325,14 +7185,6 @@ function bind(){
   el('TG-rev').addEventListener('click',function(){G.cfg.rev=!G.cfg.rev;this.classList.toggle('on',G.cfg.rev);save();});
   el('ROW-rev').addEventListener('click',function(e){if(e.target!==el('TG-rev'))el('TG-rev').click();});
   el('TG-speak').addEventListener('click',function(){G.cfg.speak=!this.classList.contains('on');this.classList.toggle('on',G.cfg.speak);save();});
-  if(el('TG-webtts'))el('TG-webtts').addEventListener('click',function(){
-    G.cfg.webTTS=!this.classList.contains('on');
-    this.classList.toggle('on',G.cfg.webTTS);
-    WEB_TTS_PAUSED_UNTIL=0; WEB_TTS_FAILS=0; /* 切替時に休止状態をリセット */
-    save();
-    toast(G.cfg.webTTS?'🌐 英語はネイティブ発音を優先します（無い場合は内蔵音声）':'内蔵音声のみを使用します');
-  });
-  if(el('ROW-webtts'))el('ROW-webtts').addEventListener('click',function(e){if(el('TG-webtts')&&e.target!==el('TG-webtts'))el('TG-webtts').click();});
   el('ROW-speak').addEventListener('click',function(e){if(e.target!==el('TG-speak'))el('TG-speak').click();});
   /* ✏️ スペルモード設定 */
   /* 📶 段階別学習モード */
