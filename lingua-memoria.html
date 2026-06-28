@@ -5798,6 +5798,14 @@ function quizStart(mode,lid){
 
   if(mainWs.length<2){toast('クイズには最低2単語必要です');return;}
   mainWs.forEach(function(w){delete w._hadMiss;delete w._answerMs;});
+  if(mode==='fresh'){
+    /* 🟢 新出の復習は「軽い復習」：予習なし・段階別なしで4択のみ出題する。
+       他の出題（予習→クイズ等）は従来通り設定に従う。 */
+    qInit(mainWs,{testMode:false,quizMode:'study',forceSimple:true,ebbingIds:ebbingIds});
+    go('s-quiz');
+    qRender();
+    return;
+  }
   /* 予習→クイズと同じ流れ: flashStartに渡して予習から始める */
   flashStart(mainWs, mode, null);
 }
@@ -5812,7 +5820,8 @@ function isPhrase(word){
    OFFの場合は従来通りQ.q=wordsで全単語を4択として出題する */
 function qInit(words, opts){
   opts=opts||{};
-  var isStages=G.cfg.stages===true&&!opts.testMode;
+  /* forceSimple: 段階別学習設定に関係なく、必ず4択のみで出題する（新出の復習用） */
+  var isStages=G.cfg.stages===true&&!opts.testMode&&!opts.forceSimple;
   Q={
     words:words,
     q:isStages?[]:words.slice(), /* 段階別ONは空→qNextPhaseが管理 */
@@ -5822,6 +5831,7 @@ function qInit(words, opts){
     sessionStart:Date.now(),
     consec:{},mastered:0,masteredIds:{},
     ebbingIds:opts.ebbingIds||{},
+    forceSimple:!!opts.forceSimple, /* 4択のみ強制（新出の復習）。段階別フェーズへ移行しない */
     phaseId:isStages?'__init__':null, /* __init__は「フェーズ前」の印 */
     _quickFail:[]
   };
@@ -6016,7 +6026,7 @@ var PHASE_DEFS=[
   {id:'eng2eng', badge:'⑥ 英英',         enabled:function(){return (G.cfg.stgPhases||{}).eng2eng ===true;}, spell:false, defOnly:true},
 ];
 
-function stagesOn(){return G.cfg.stages===true&&!Q.testMode;}
+function stagesOn(){return G.cfg.stages===true&&!Q.testMode&&!Q.forceSimple;}
 
 /* フェーズを開始する共通処理 */
 function qStartPhase(phaseId,words){
@@ -6076,7 +6086,7 @@ function qMaybeSpellPhase(){
     qNextPhase();return;
   }
   /* 旧スペル一括ラウンド（段階別OFFの場合のみ） */
-  if(G.cfg.spell&&!Q.testMode&&!stagesOn()){
+  if(G.cfg.spell&&!Q.testMode&&!stagesOn()&&!Q.forceSimple){
     if(!Q.spellStages){
       var t=G.cfg.spellType||'both';
       Q.spellStages=(t==='both')?['build','choice']:[t];
