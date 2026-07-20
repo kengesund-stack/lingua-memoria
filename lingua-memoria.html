@@ -1133,6 +1133,7 @@ schön,美しい"></textarea>
       <div class="set-row" id="B-export-csv"><span class="set-lbl">📊 CSVでエクスポート</span><span class="set-val">→</span></div>
       <div class="set-row" id="B-qr"><span class="set-lbl">📱 QRコードで転送</span><span class="set-val">→</span></div>
       <div class="set-row" id="B-import-row"><span class="set-lbl">📥 インポート（追加統合）</span><span class="set-val">→</span></div>
+      <div class="set-row" id="B-update-row"><span class="set-lbl">🔄 単語データを更新（履歴を保持）<br><span style="font-size:11px;color:var(--tx2);font-weight:400">訳や定義の修正版を、学習記録を消さずに反映</span></span><span class="set-val">→</span></div>
       <div class="set-row" id="B-reset"><span class="set-lbl" style="color:var(--rd)">🗑️ すべて削除</span><span class="set-val">→</span></div>
     </div>
     <div style="text-align:center;padding:16px;color:var(--tx2);font-size:11px">LinguaMemoria v2.1 — 多言語対応版</div>
@@ -1142,6 +1143,7 @@ schön,美しい"></textarea>
 
 </div>
 <input type="file" id="IN-import" accept=".json" style="display:none">
+<input type="file" id="IN-update" accept=".json" style="display:none">
 
 <script>
 var MEM=null, DBKEY='vm3';
@@ -7484,6 +7486,100 @@ function bind(){
         toast(msg);
       }
       catch(err){toast('インポートに失敗しました');}
+    };
+    fr.readAsText(f);e.target.value='';
+  });
+
+  /* ── 単語データの更新（学習履歴を保持したまま内容だけ差し替え） ──
+     インポートが既存IDを読み飛ばすのに対し、こちらは既存の単語に
+     word / meaning / def のみを上書きする。学習状態(s, cr, lr, lid, id)は触らない。 */
+  el('B-update-row').addEventListener('click',function(){el('IN-update').click();});
+  el('IN-update').addEventListener('change',function(e){
+    var f=e.target.files[0];if(!f)return;
+    var fr=new FileReader();
+    fr.onload=function(ev){
+      try{
+        var d=JSON.parse(ev.target.result);
+        var src=d.words||d;
+        if(!src||!src.length)throw new Error('単語が見つかりません');
+
+        /* 照合用キー: 大小文字・前後空白・引用符ゆれを吸収 */
+        function nk(s){
+          s=(s||'').trim().toLowerCase();
+          return s.replace(/[\u2018\u2019]/g,"'").replace(/\s+/g,' ');
+        }
+        var byId={},byWord={};
+        src.forEach(function(w){
+          if(!w||!w.word)return;
+          if(w.id)byId[w.id]=w;
+          var k=nk(w.word);
+          if(!(k in byWord))byWord[k]=w;
+        });
+
+        /* まず変更点を集計するだけで、この時点では一切書き換えない */
+        var plan=[],hit=0,un=0,cw=0,cm=0,cd=0,unList=[];
+        G.words.forEach(function(w){
+          var s=byId[w.id]||byWord[nk(w.word)];
+          if(!s){un++;if(unList.length<8)unList.push(w.word);return;}
+          hit++;
+          var p={w:w};
+          if(s.word&&s.word!==w.word){p.word=s.word;cw++;}
+          if(s.meaning&&s.meaning!==w.meaning){p.meaning=s.meaning;cm++;}
+          if(s.def&&s.def!==w.def){p.def=s.def;cd++;}
+          if(p.word||p.meaning||p.def)plan.push(p);
+        });
+
+        if(!hit){
+          toast('一致する単語がありませんでした');
+          return;
+        }
+
+        var changed=cw+cm+cd;
+        var msg='一致 '+hit+' 語';
+        if(un)msg+='／未一致 '+un+' 語';
+        msg+='\n\n';
+        if(changed){
+          msg+='見出し語  '+cw+' 件\n和訳      '+cm+' 件\n定義      '+cd+' 件';
+          msg+='\n\nを更新します。\n学習記録・出題履歴・連続日数はそのまま保持されます。';
+        }else{
+          msg+='内容の違いは見つかりませんでした。\n（すでに更新済みの可能性があります）';
+        }
+        if(un){
+          msg+='\n\n未一致の語は変更せずそのまま残します:\n'+unList.join('、')+(un>8?' ほか':'');
+        }
+
+        showDelDialog({
+          icon:'🔄',
+          title: changed?'この内容で更新しますか？':'更新の必要はありません',
+          msg: msg,
+          okLabel: changed?'更新する':'閉じる',
+          onOk:function(){
+            if(!changed)return;
+            /* 確定後にはじめて書き換える */
+            plan.forEach(function(p){
+              if(p.word)p.w.word=p.word;
+              if(p.meaning)p.w.meaning=p.meaning;
+              if(p.def)p.w.def=p.def;
+            });
+            /* 忘却曲線キューが持つ表示用キャッシュも合わせて更新 */
+            var eb=0;
+            if(G.ebbing&&typeof G.ebbing==='object'){
+              var wmap={};
+              G.words.forEach(function(w){if(w.id)wmap[w.id]=w;});
+              Object.keys(G.ebbing).forEach(function(id){
+                var r=G.ebbing[id],t=wmap[id];
+                if(!r||!t||typeof r!=='object')return;
+                if(r.word!==t.word||r.meaning!==(t.meaning||'')){
+                  r.word=t.word;r.meaning=t.meaning||'';eb++;
+                }
+              });
+            }
+            save();homeRefresh();
+            toast('✅ '+changed+' 件を更新しました（履歴は保持）');
+          }
+        });
+      }
+      catch(err){toast('更新に失敗しました');}
     };
     fr.readAsText(f);e.target.value='';
   });
