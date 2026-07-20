@@ -3605,6 +3605,7 @@ function listMenu(lid){
     '</div>'+
     '<button class="btn-sec" id="LM-list" style="margin-top:0;margin-bottom:8px">📚 単語一覧を見る</button>'+
     '<button class="btn-sec" id="LM-gen-defs" style="margin-top:0;margin-bottom:8px'+(G.cfg.key?'':';opacity:.4')+'">'+(function(){var nd=G.words.filter(function(w){return w.lid===lid&&!w.def;}).length;return (G.cfg.key?'📖':'📖🔑')+' 英語定義を補完'+(nd?' (未定義:'+nd+'語)':'（完了済み）');})()+'</button>'+
+    '<button class="btn-sec" id="LM-adopt" style="margin-top:0;margin-bottom:8px">🔗 別リストから学習履歴を引き継ぐ</button>'+
     '<button class="btn-sec" id="LM-edit" style="margin-top:0">✏️ リストを編集</button>';
   el('modal-bg').classList.add('on');
 
@@ -3745,6 +3746,119 @@ function listMenu(lid){
     el('modal-bg').classList.remove('on');
     bulkGenerateDefs(lid, function(){listRender();});
   });
+  /* ── 別リストから学習履歴を引き継ぐ ──
+     同じ内容のリストを二重に持ってしまった場合に、旧リストの学習状態を
+     このリストへ移し、旧リストを削除できるようにする。 */
+  el('LM-adopt').addEventListener('click',function(){
+    function nk(s){
+      s=(s||'').trim().toLowerCase();
+      return s.replace(/[\u2018\u2019]/g,"'").replace(/\s+/g,' ');
+    }
+    /* 自分以外の同言語リストを、見出し語の重なりが多い順に並べる */
+    var mine={},myWs=G.words.filter(function(w){return w.lid===lid;});
+    myWs.forEach(function(w){mine[nk(w.word)]=w;});
+
+    var cands=G.lists.filter(function(x){return x.id!==lid;}).map(function(x){
+      var ws=G.words.filter(function(w){return w.lid===x.id;});
+      var ov=0,studied=0;
+      ws.forEach(function(w){
+        if(mine[nk(w.word)])ov++;
+        if(w.s&&(w.s.k||w.s.l||w.s.d))studied++;
+      });
+      return {lst:x,total:ws.length,ov:ov,studied:studied};
+    }).filter(function(c){return c.ov>0;})
+      .sort(function(a,b){return b.ov-a.ov;});
+
+    if(!cands.length){
+      el('modal-bg').classList.remove('on');
+      toast('引き継ぎ元になるリストが見つかりません');
+      return;
+    }
+
+    var html='<div class="modal-tl">🔗 学習履歴を引き継ぐ</div>'+
+      '<div style="font-size:12px;color:var(--tx2);line-height:1.7;margin-bottom:12px">'+
+      '「'+esc(lst.name)+'」に、別リストの学習記録を移します。<br>'+
+      '見出し語で照合するため、訳や定義が違っていても引き継げます。</div>';
+    cands.forEach(function(c,i){
+      html+='<button class="btn-sec" data-adopt="'+c.lst.id+'" style="margin-top:0;margin-bottom:8px;text-align:left;line-height:1.6">'+
+        '<b>'+esc(c.lst.name)+'</b><br>'+
+        '<span style="font-size:11px;color:var(--tx2)">'+c.total+'語中 '+c.ov+'語が一致'+
+        (c.studied?' · 学習済み '+c.studied+'語':' · 学習記録なし')+'</span></button>';
+    });
+    el('modal-ct').innerHTML=html;
+
+    Array.prototype.forEach.call(el('modal-ct').querySelectorAll('[data-adopt]'),function(b){
+      b.addEventListener('click',function(){
+        var srcLid=this.getAttribute('data-adopt');
+        var srcLst=G.lists.find(function(x){return x.id===srcLid;});
+        var srcWs=G.words.filter(function(w){return w.lid===srcLid;});
+
+        /* 移行対象を先に集計（この時点では書き換えない） */
+        var plan=[],carried=0;
+        srcWs.forEach(function(sw){
+          var tw=mine[nk(sw.word)];
+          if(!tw)return;
+          var hasHist=sw.s&&((sw.s.k||0)>0||(sw.s.l||0)>0||sw.s.d||sw.lr);
+          if(!hasHist)return;
+          plan.push({t:tw,s:sw.s,lr:sw.lr,cr:sw.cr,oldId:sw.id});
+          carried++;
+        });
+
+        if(!carried){
+          el('modal-bg').classList.remove('on');
+          toast('引き継げる学習記録がありませんでした');
+          return;
+        }
+
+        showDelDialog({
+          icon:'🔗',
+          title:'学習履歴を引き継ぎますか？',
+          msg:'「'+srcLst.name+'」から\n'+carried+'語の学習記録を\n\n「'+lst.name+'」へ移します。\n\n'+
+              '進捗・間違い回数・次回復習日・\n忘却曲線の状態もそのまま移ります。\n\n'+
+              '移行後、元のリストは削除できます。',
+          okLabel:'引き継ぐ',
+          onOk:function(){
+            plan.forEach(function(p){
+              /* 学習状態を丸ごと移植 */
+              p.t.s=JSON.parse(JSON.stringify(p.s));
+              if(p.lr)p.t.lr=p.lr;
+              if(p.cr)p.t.cr=p.cr;
+              /* 忘却曲線キューの参照先を新しい単語IDへ付け替え */
+              if(G.ebbing&&G.ebbing[p.oldId]){
+                var r=G.ebbing[p.oldId];
+                delete G.ebbing[p.oldId];
+                r.wordId=p.t.id;
+                r.word=p.t.word;
+                r.meaning=p.t.meaning||'';
+                G.ebbing[p.t.id]=r;
+              }
+            });
+            /* 進捗カーソルも引き継ぐ */
+            if(srcLst&&srcLst.cursor)lst.cursor=srcLst.cursor;
+            save();homeRefresh();
+            el('modal-bg').classList.remove('on');
+
+            showDelDialog({
+              icon:'🗑️',
+              title:'元のリストを削除しますか？',
+              msg:'「'+srcLst.name+'」は役目を終えました。\n'+
+                  '削除すると一覧がすっきりします。\n\n'+
+                  '残しておいても問題はありません。',
+              okLabel:'削除する',
+              onOk:function(){
+                G.words=G.words.filter(function(w){return w.lid!==srcLid;});
+                G.lists=G.lists.filter(function(x){return x.id!==srcLid;});
+                save();homeRefresh();
+                toast('✅ '+carried+'語の履歴を引き継ぎ、元リストを削除しました');
+              }
+            });
+            toast('✅ '+carried+'語の学習履歴を引き継ぎました');
+          }
+        });
+      });
+    });
+  });
+
   el('LM-edit').addEventListener('click',function(){
     el('modal-bg').classList.remove('on');
     editList(lid);
