@@ -399,7 +399,10 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 <!-- HOME -->
 <div class="scr on" id="s-home">
   <div class="home-top">
-    <div class="logo">LinguaMemoria</div>
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div class="logo">LinguaMemoria</div>
+      <div style="font-size:10px;color:var(--tx2);font-weight:600;letter-spacing:.3px">v3.2</div>
+    </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="btn" id="B-help" style="height:34px;padding:0 12px;background:rgba(124,92,252,.15);border:1px solid rgba(124,92,252,.35);border-radius:10px;color:var(--ac);font-size:12px;font-weight:700;gap:5px;display:flex;align-items:center">❓ 使用説明</button>
       <button class="btn btn-ic" id="B-go-settings">⚙️</button>
@@ -7728,9 +7731,14 @@ function bind(){
    ★ 機能を追加したらここに追記するだけでヘルプが自動更新されます
    ==================================================== */
 var HELP_DEF = {
-  version: '3.1',
-  updated: '2025-07',
+  version: '3.2',
+  updated: '2026-07',
   features: [
+    {
+      icon: '🔗',
+      title: '学習履歴の引き継ぎ・データ更新',
+      body: '<b style="color:var(--tx)">履歴を引き継ぐ</b>：リストをタップ →「🔗 別リストから学習履歴を引き継ぐ」。同じ内容のリストが二重にできてしまったとき、旧リストの進捗を移して統合できます<br><b style="color:var(--tx)">データ更新</b>：設定 →「🔄 単語データを更新（履歴を保持）」。訳や定義の修正版を、学習記録を消さずに反映します'
+    },
     {
       icon: '📅',
       title: '今日の復習',
