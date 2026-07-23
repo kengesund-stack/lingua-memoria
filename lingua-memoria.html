@@ -167,26 +167,43 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 .qz-cnt { font-size:12px; color:var(--tx2); font-weight:500; white-space:nowrap; }
 .qz-body { flex:1; display:flex; flex-direction:column; padding:13px 16px; overflow-y:auto; gap:10px; }
 .qz-card { background:var(--sf); border-radius:18px; padding:22px 18px; text-align:center; flex-shrink:0; max-height:46vh; overflow-y:auto; }
-/* ⌨️ タイピング中は問題カードを画面に固定する。
+/* ⌨️ タイピング中は「問題カード＋入力欄」をひとつの固定ブロックとして画面に貼り付ける。
    iOSはキーボード表示時にビューポート全体を押し上げるため、sticky や scrollTop では対応できない。
-   position:fixed なら親のスクロールにもビューポートのずれにも影響されない。 */
-.qz-body.tp-mode { padding-top:0; }
-.qz-body.tp-mode .qz-card {
+   カードと入力欄を同じ固定コンテナに入れて縦に並べることで、
+   カードの高さを推測せずに「日本語の直下に入力欄」を保証できる。 */
+.qz-body.tp-mode {
   position:fixed;
   top:calc(var(--st) + 52px);
-  left:16px; right:16px;
+  left:0; right:0;
   z-index:30;
-  max-height:30vh;
+  display:flex;
+  flex-direction:column;
+  padding:0 16px;
+  gap:10px;
+  overflow:visible;
+  /* キーボードに隠れないよう、内容が多い場合のみ内部でスクロール */
+  max-height:calc(100vh - var(--st) - 60px);
+  max-height:calc(100dvh - var(--st) - 60px);
+  overflow-y:auto;
+}
+.qz-body.tp-mode .qz-card {
+  flex-shrink:0;
+  max-height:34vh;
+  overflow-y:auto;
   box-shadow:0 8px 22px rgba(0,0,0,.4);
   margin:0;
+}
+/* 入力欄ブロックはカードの直下に自然に並ぶ（marginでの高さ推測をしない） */
+.qz-body.tp-mode .choices {
+  flex:0 0 auto;
+  margin:0;
+  justify-content:flex-start;
 }
 /* ヘッダー（進捗バー）もタイピング中は固定して、画面上部が消えないようにする */
 .qz-hdr.tp-fixed {
   position:fixed; top:0; left:0; right:0; z-index:31;
   background:var(--bg);
 }
-/* 固定したカードの高さぶん、下の入力欄を押し下げる */
-.qz-body.tp-mode .choices { margin-top:calc(30vh + 16px); }
 .qz-badge { display:inline-block; background:rgba(124,92,252,.15); color:var(--ac); font-size:12px; font-weight:700; padding:3px 9px; border-radius:20px; margin-bottom:12px; text-transform:uppercase; letter-spacing:.06em; }
 .qz-word { font-size:42px; font-weight:700; line-height:1.25; word-break:break-word; }
 .choices { display:flex; flex-direction:column; gap:7px; flex:1; justify-content:center; }
@@ -421,7 +438,7 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
   <div class="home-top">
     <div style="display:flex;flex-direction:column;gap:2px">
       <div class="logo">LinguaMemoria</div>
-      <div style="font-size:10px;color:var(--tx2);font-weight:600;letter-spacing:.3px">v3.3</div>
+      <div style="font-size:10px;color:var(--tx2);font-weight:600;letter-spacing:.3px">v3.4</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="btn" id="B-help" style="height:34px;padding:0 12px;background:rgba(124,92,252,.15);border:1px solid rgba(124,92,252,.35);border-radius:10px;color:var(--ac);font-size:12px;font-weight:700;gap:5px;display:flex;align-items:center">❓ 使用説明</button>
@@ -6060,12 +6077,12 @@ function tpDiffMark(input,ans){
 var _tpVV=null;
 function tpViewportApply(){
   var vv=window.visualViewport;
-  var card=document.querySelector('.qz-body.tp-mode .qz-card');
+  var body=document.querySelector('.qz-body.tp-mode');
   var hdr=document.querySelector('.qz-hdr.tp-fixed');
   if(!vv){return;}
   var off=vv.offsetTop||0;
   var tf=off?('translateY('+off+'px)'):'';
-  if(card)card.style.transform=tf;
+  if(body)body.style.transform=tf;
   if(hdr)hdr.style.transform=tf;
 }
 function tpViewportBind(){
@@ -6083,8 +6100,10 @@ function tpViewportUnbind(){
     vv.removeEventListener('scroll',_tpVV);
   }
   _tpVV=null;
+  var body=document.querySelector('.qz-body');
   var card=document.querySelector('.qz-card');
   var hdr=document.querySelector('.qz-hdr');
+  if(body)body.style.transform='';
   if(card)card.style.transform='';
   if(hdr)hdr.style.transform='';
 }
@@ -7824,7 +7843,7 @@ function bind(){
    ★ 機能を追加したらここに追記するだけでヘルプが自動更新されます
    ==================================================== */
 var HELP_DEF = {
-  version: '3.3',
+  version: '3.4',
   updated: '2026-07',
   features: [
     {
