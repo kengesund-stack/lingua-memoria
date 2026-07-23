@@ -167,9 +167,26 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 .qz-cnt { font-size:12px; color:var(--tx2); font-weight:500; white-space:nowrap; }
 .qz-body { flex:1; display:flex; flex-direction:column; padding:13px 16px; overflow-y:auto; gap:10px; }
 .qz-card { background:var(--sf); border-radius:18px; padding:22px 18px; text-align:center; flex-shrink:0; max-height:46vh; overflow-y:auto; }
-/* ⌨️ タイピング中はキーボード表示で画面がスクロールしても問題カードを見えたままにする */
+/* ⌨️ タイピング中は問題カードを画面に固定する。
+   iOSはキーボード表示時にビューポート全体を押し上げるため、sticky や scrollTop では対応できない。
+   position:fixed なら親のスクロールにもビューポートのずれにも影響されない。 */
 .qz-body.tp-mode { padding-top:0; }
-.qz-body.tp-mode .qz-card { position:sticky; top:0; z-index:5; max-height:38vh; box-shadow:0 6px 18px rgba(0,0,0,.35); margin-top:13px; }
+.qz-body.tp-mode .qz-card {
+  position:fixed;
+  top:calc(var(--st) + 52px);
+  left:16px; right:16px;
+  z-index:30;
+  max-height:30vh;
+  box-shadow:0 8px 22px rgba(0,0,0,.4);
+  margin:0;
+}
+/* ヘッダー（進捗バー）もタイピング中は固定して、画面上部が消えないようにする */
+.qz-hdr.tp-fixed {
+  position:fixed; top:0; left:0; right:0; z-index:31;
+  background:var(--bg);
+}
+/* 固定したカードの高さぶん、下の入力欄を押し下げる */
+.qz-body.tp-mode .choices { margin-top:calc(30vh + 16px); }
 .qz-badge { display:inline-block; background:rgba(124,92,252,.15); color:var(--ac); font-size:12px; font-weight:700; padding:3px 9px; border-radius:20px; margin-bottom:12px; text-transform:uppercase; letter-spacing:.06em; }
 .qz-word { font-size:42px; font-weight:700; line-height:1.25; word-break:break-word; }
 .choices { display:flex; flex-direction:column; gap:7px; flex:1; justify-content:center; }
@@ -404,7 +421,7 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
   <div class="home-top">
     <div style="display:flex;flex-direction:column;gap:2px">
       <div class="logo">LinguaMemoria</div>
-      <div style="font-size:10px;color:var(--tx2);font-weight:600;letter-spacing:.3px">v3.2</div>
+      <div style="font-size:10px;color:var(--tx2);font-weight:600;letter-spacing:.3px">v3.3</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="btn" id="B-help" style="height:34px;padding:0 12px;background:rgba(124,92,252,.15);border:1px solid rgba(124,92,252,.35);border-radius:10px;color:var(--ac);font-size:12px;font-weight:700;gap:5px;display:flex;align-items:center">❓ 使用説明</button>
@@ -6036,10 +6053,50 @@ function tpDiffMark(input,ans){
   }
   return h;
 }
+/* ── ⌨️ タイピング中の表示位置補正 ──
+   iOSはキーボードを出すとき、ページをスクロールさせるのではなく
+   ビジュアルビューポート自体をずらすことがある。その場合 position:fixed も一緒にずれるため、
+   visualViewport の offsetTop を読んで、固定要素を逆方向に平行移動して打ち消す。 */
+var _tpVV=null;
+function tpViewportApply(){
+  var vv=window.visualViewport;
+  var card=document.querySelector('.qz-body.tp-mode .qz-card');
+  var hdr=document.querySelector('.qz-hdr.tp-fixed');
+  if(!vv){return;}
+  var off=vv.offsetTop||0;
+  var tf=off?('translateY('+off+'px)'):'';
+  if(card)card.style.transform=tf;
+  if(hdr)hdr.style.transform=tf;
+}
+function tpViewportBind(){
+  var vv=window.visualViewport;
+  if(!vv||_tpVV)return;
+  _tpVV=function(){tpViewportApply();};
+  vv.addEventListener('resize',_tpVV);
+  vv.addEventListener('scroll',_tpVV);
+  tpViewportApply();
+}
+function tpViewportUnbind(){
+  var vv=window.visualViewport;
+  if(vv&&_tpVV){
+    vv.removeEventListener('resize',_tpVV);
+    vv.removeEventListener('scroll',_tpVV);
+  }
+  _tpVV=null;
+  var card=document.querySelector('.qz-card');
+  var hdr=document.querySelector('.qz-hdr');
+  if(card)card.style.transform='';
+  if(hdr)hdr.style.transform='';
+}
+
 function qRenderType(q){
   el('QZ-badge').textContent='⌨️ 英単語をタイプ（手がかりなし）';
-  /* 問題カードを上部に固定し、キーボード表示中も見えるようにする */
-  (function(){var _qb=document.querySelector('.qz-body');if(_qb)_qb.classList.add('tp-mode');})();
+  /* 問題カードとヘッダーを画面に固定し、キーボード表示中も見えるようにする */
+  (function(){
+    var _qb=document.querySelector('.qz-body');if(_qb)_qb.classList.add('tp-mode');
+    var _qh=document.querySelector('.qz-hdr');if(_qh)_qh.classList.add('tp-fixed');
+    tpViewportBind();
+  })();
   var word=q.word.trim();
   Q.ca=word;Q.done=false;
   Q.spell={word:word,type:'type',tries:0,hints:0};
@@ -6659,8 +6716,12 @@ function repBadgeApply(elm, w){
   elm.style.display='inline-block';
 }
 function qRender(){
-  /* ⌨️ タイピング用の固定表示モードを毎問リセット（該当時のみ後で再付与） */
-  (function(){var _qb=document.querySelector('.qz-body');if(_qb)_qb.classList.remove('tp-mode');})();
+  /* ⌨️ タイピング用の固定表示を毎問リセット（該当時のみ後で再付与） */
+  (function(){
+    var _qb=document.querySelector('.qz-body');if(_qb)_qb.classList.remove('tp-mode');
+    var _qh=document.querySelector('.qz-hdr');if(_qh)_qh.classList.remove('tp-fixed');
+    if(typeof tpViewportUnbind==='function')tpViewportUnbind();
+  })();
   var q=Q.q[Q.i];
   if(!q){
     /* 段階別ONでphaseId==__initまたはフェーズ完了 → 次のフェーズへ */
@@ -7309,6 +7370,12 @@ function bind(){
 
   el('B-quiz-exit').addEventListener('click',function(){
     if(window.speechSynthesis)window.speechSynthesis.cancel();
+    /* タイピング用の固定表示を解除してからホームへ戻す */
+    (function(){
+      var _qb=document.querySelector('.qz-body');if(_qb)_qb.classList.remove('tp-mode');
+      var _qh=document.querySelector('.qz-hdr');if(_qh)_qh.classList.remove('tp-fixed');
+      if(typeof tpViewportUnbind==='function')tpViewportUnbind();
+    })();
     el('FB').classList.remove('on');go('s-home');
   });
   el('B-next').addEventListener('click',qNext);
@@ -7757,7 +7824,7 @@ function bind(){
    ★ 機能を追加したらここに追記するだけでヘルプが自動更新されます
    ==================================================== */
 var HELP_DEF = {
-  version: '3.2',
+  version: '3.3',
   updated: '2026-07',
   features: [
     {
