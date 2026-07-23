@@ -167,6 +167,9 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 .qz-cnt { font-size:12px; color:var(--tx2); font-weight:500; white-space:nowrap; }
 .qz-body { flex:1; display:flex; flex-direction:column; padding:13px 16px; overflow-y:auto; gap:10px; }
 .qz-card { background:var(--sf); border-radius:18px; padding:22px 18px; text-align:center; flex-shrink:0; max-height:46vh; overflow-y:auto; }
+/* ⌨️ タイピング中はキーボード表示で画面がスクロールしても問題カードを見えたままにする */
+.qz-body.tp-mode { padding-top:0; }
+.qz-body.tp-mode .qz-card { position:sticky; top:0; z-index:5; max-height:38vh; box-shadow:0 6px 18px rgba(0,0,0,.35); margin-top:13px; }
 .qz-badge { display:inline-block; background:rgba(124,92,252,.15); color:var(--ac); font-size:12px; font-weight:700; padding:3px 9px; border-radius:20px; margin-bottom:12px; text-transform:uppercase; letter-spacing:.06em; }
 .qz-word { font-size:42px; font-weight:700; line-height:1.25; word-break:break-word; }
 .choices { display:flex; flex-direction:column; gap:7px; flex:1; justify-content:center; }
@@ -6035,6 +6038,8 @@ function tpDiffMark(input,ans){
 }
 function qRenderType(q){
   el('QZ-badge').textContent='⌨️ 英単語をタイプ（手がかりなし）';
+  /* 問題カードを上部に固定し、キーボード表示中も見えるようにする */
+  (function(){var _qb=document.querySelector('.qz-body');if(_qb)_qb.classList.add('tp-mode');})();
   var word=q.word.trim();
   Q.ca=word;Q.done=false;
   Q.spell={word:word,type:'type',tries:0,hints:0};
@@ -6076,7 +6081,11 @@ function qRenderType(q){
       el('TP-hint').innerHTML=
         (_dl===1?'⚠️ 惜しい！あと'+(MAX-Q.spell.tries)+'回: ':'❌ 不正解。あと'+(MAX-Q.spell.tries)+'回: ')+
         '<span style="font-family:ui-monospace,monospace">'+tpDiffMark(v,ans)+'</span>';
-      setTimeout(function(){IN.className='tp-input';IN.select();IN.focus();},420);
+      setTimeout(function(){
+        IN.className='tp-input';IN.select();
+        try{IN.focus({preventScroll:true});}catch(e){try{IN.focus();}catch(e2){}}
+        var _qb=document.querySelector('.qz-body');if(_qb)_qb.scrollTop=0;
+      },420);
     }else{
       /* 3回全部不正解 */
       IN.className='tp-input ng';IN.disabled=true;
@@ -6102,7 +6111,20 @@ function qRenderType(q){
   });
   el('FB').classList.remove('on');
   Q.qStartTime=Date.now();
-  setTimeout(function(){try{IN.focus();}catch(e){}},150);
+  setTimeout(function(){
+    try{
+      /* preventScroll でフォーカス時の自動スクロールを抑止し、問題文が隠れないようにする */
+      IN.focus({preventScroll:true});
+    }catch(e){
+      try{IN.focus();}catch(e2){}
+    }
+    /* iOSはfocus後に遅れてスクロールすることがあるため、先頭へ戻す */
+    setTimeout(function(){
+      var _qb=document.querySelector('.qz-body');
+      if(_qb)_qb.scrollTop=0;
+      if(window.scrollY)window.scrollTo(0,0);
+    },80);
+  },150);
 }
 
 /* ── 段階5: ⚡クイックレスポンス（制限時間付き英→日4択） ── */
@@ -6637,6 +6659,8 @@ function repBadgeApply(elm, w){
   elm.style.display='inline-block';
 }
 function qRender(){
+  /* ⌨️ タイピング用の固定表示モードを毎問リセット（該当時のみ後で再付与） */
+  (function(){var _qb=document.querySelector('.qz-body');if(_qb)_qb.classList.remove('tp-mode');})();
   var q=Q.q[Q.i];
   if(!q){
     /* 段階別ONでphaseId==__initまたはフェーズ完了 → 次のフェーズへ */
