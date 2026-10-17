@@ -105,6 +105,7 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 .lang-fr { background:rgba(92,248,252,.15); color:var(--ac3); }
 .lang-es { background:rgba(255,156,76,.15); color:var(--or); }
 .lang-it { background:rgba(252,92,125,.15); color:var(--ac2); }
+.lang-kobun { background:rgba(212,163,115,.18); color:#d4a373; }
 
 .seg { display:flex; background:var(--sf); border-radius:11px; padding:3px; margin-bottom:16px; }
 .seg-btn { flex:1; padding:8px 3px; border:none; border-radius:8px; background:transparent; color:var(--tx2); font-size:12px; font-weight:500; cursor:pointer; -webkit-appearance:none; font-family:inherit; }
@@ -119,7 +120,7 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 /* 言語選択 */
 .lang-sel-wrap { margin-bottom:14px; }
 .lang-sel-title { font-size:12px; color:var(--tx2); margin-bottom:7px; font-weight:500; }
-.lang-sel-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+.lang-sel-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; }
 .lang-sel-btn { padding:8px 4px; border:2px solid rgba(255,255,255,.08); border-radius:10px; background:var(--sf); color:var(--tx2); font-size:11px; font-weight:600; cursor:pointer; text-align:center; -webkit-appearance:none; font-family:inherit; line-height:1.4; }
 .lang-sel-btn.on { border-color:var(--ac); background:rgba(124,92,252,.12); color:var(--tx); }
 .opt-btn { padding:8px 4px; border:2px solid rgba(255,255,255,.08); border-radius:10px; background:var(--sf); color:var(--tx2); font-size:11px; font-weight:600; cursor:pointer; text-align:center; -webkit-appearance:none; font-family:inherit; line-height:1.4; }
@@ -526,6 +527,7 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
         <button class="lang-sel-btn" data-lang="fr" id="LS-fr">🇫🇷<br>仏語</button>
         <button class="lang-sel-btn" data-lang="es" id="LS-es">🇪🇸<br>西語</button>
         <button class="lang-sel-btn" data-lang="it" id="LS-it">🇮🇹<br>伊語</button>
+        <button class="lang-sel-btn" data-lang="kobun" id="LS-kobun">📜<br>古文</button>
       </div>
     </div>
 
@@ -609,6 +611,29 @@ schön,美しい"></textarea>
   }
 }</pre>
               <button onclick="copyPrompt('PROMPT-2','BTN-CP-2')" id="BTN-CP-2" style="margin-top:8px;width:100%;background:rgba(124,92,252,.12);border:1px solid rgba(124,92,252,.25);border-radius:7px;padding:7px;color:var(--ac);font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-appearance:none">📋 コピー</button>
+            </div>
+          </div>
+
+          <!-- プロンプト例3：古文 -->
+          <div style="margin-bottom:12px">
+            <div style="color:#d4a373;font-weight:700;margin-bottom:5px">③ 古文単語リストを作る（学習言語「📜 古文」を選択）</div>
+            <div style="background:rgba(0,0,0,.35);border-radius:8px;padding:10px;position:relative">
+              <pre id="PROMPT-3" style="white-space:pre-wrap;color:var(--tx);font-family:-apple-system,Helvetica,Arial,sans-serif;font-size:11px;margin:0;line-height:1.6">大学入試（共通テスト〜難関大）で問われる重要古文単語を50語、以下のJSON形式で出力してください。見出し語(word)は歴史的仮名遣いのひらがな・終止形、意味(meaning)は入試で問われる現代語訳（複数ある場合は「①…②…」）、def には「【品詞】短い用例（現代語訳）」を入れてください。
+
+{
+  "book_title": "重要古文単語",
+  "content": {
+    "vocabulary": [
+      {"word": "あはれなり", "meaning": "①しみじみと趣深い ②気の毒だ", "def": "【形容動詞・ナリ】夕暮れはいとあはれなり。（夕暮れはたいそうしみじみと趣深い。）"},
+      {"word": "ののしる", "meaning": "①大声で騒ぐ ②評判になる", "def": "【動詞・ラ四】人々ののしりあへり。（人々が大声で騒ぎ合っている。）"}
+    ],
+    "phrases": [
+      {"word": "さるべき", "meaning": "①ふさわしい ②そうなるはずの（宿命の）", "def": "【連語】さるべき人（ふさわしい人）"},
+      {"word": "な〜そ", "meaning": "〜するな（禁止）", "def": "【呼応の副詞】な言ひそ。（言うな。）"}
+    ]
+  }
+}</pre>
+              <button onclick="copyPrompt('PROMPT-3','BTN-CP-3')" id="BTN-CP-3" style="margin-top:8px;width:100%;background:rgba(212,163,115,.12);border:1px solid rgba(212,163,115,.3);border-radius:7px;padding:7px;color:#d4a373;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;-webkit-appearance:none">📋 コピー</button>
             </div>
           </div>
 
@@ -816,6 +841,7 @@ schön,美しい"></textarea>
     <button class="flt-btn" data-lang="fr">🇫🇷 フランス語</button>
     <button class="flt-btn" data-lang="es">🇪🇸 スペイン語</button>
     <button class="flt-btn" data-lang="it">🇮🇹 イタリア語</button>
+    <button class="flt-btn" data-lang="kobun">📜 古文</button>
   </div>
   <div style="display:flex;gap:6px;padding:7px 16px 0;flex-shrink:0">
     <select id="SEL-status" style="flex:1;background:var(--sf);border:1px solid rgba(255,255,255,.1);border-radius:9px;color:var(--tx);font-family:inherit;font-size:12px;padding:6px 8px;outline:none;-webkit-appearance:none;text-align:center">
@@ -1254,10 +1280,52 @@ var LANGS={
   de:{name:'ドイツ語',flag:'🇩🇪',cls:'lang-de'},
   fr:{name:'フランス語',flag:'🇫🇷',cls:'lang-fr'},
   es:{name:'スペイン語',flag:'🇪🇸',cls:'lang-es'},
-  it:{name:'イタリア語',flag:'🇮🇹',cls:'lang-it'}
+  it:{name:'イタリア語',flag:'🇮🇹',cls:'lang-it'},
+  kobun:{name:'古文',flag:'📜',cls:'lang-kobun'}
 };
 
-function mkDB(){return{words:[],lists:[],folders:[],logs:[],cfg:{size:20,random:true,rev:false,speak:true,autonext:false,autonextSec:1.5,flashSec:2,flashAuto:false,spkMode:'both',duckVol:15,key:'',requeueMax:1,ebbing:true,ebbingMax:5,homeLangFilter:'en',listPlayMode:'foreign',listPlaySec:2,listPlayRepeat:false,themeBg:'#0a0a0f',themeTx:'#f0f0f8',themeAcc:'auto',dictUrls:{en:'https://ejje.weblio.jp/content/{word}',de:'https://www.duden.de/rechtschreibung/{word}',fr:'https://fjjf.weblio.jp/content/{word}',es:'',it:''}},stats:{streak:0,lastDay:''}};}
+/* ── 📜 古文用の共通定義 ── */
+var KOBUN_RULE='見出し語(word)は歴史的仮名遣いのひらがなで、活用語は必ず終止形に直して記載してください（例: あはれなり、をかし、ののしる、いと）。本文が漢字表記でも見出し語はひらがなにしてください。現代語と同じ意味で使われる平易な語や、助詞・助動詞は除いてください。meaningは大学入試で問われる現代語訳を簡潔に、意味が複数ある場合は「①…②…」の形式で記載してください。';
+var KOBUN_TYPECOND={
+  words:'古語の単語のみ（連語・慣用表現は含めない）',
+  phrases:'連語・慣用表現・呼応の副詞（例: え〜ず、な〜そ、さるべき、いかがはせむ）のみ',
+  both:'古語の単語と、連語・慣用表現・呼応の副詞の両方'
+};
+/* 歴史的仮名遣い → 読み上げ用の現代の発音（表示は変えず、音声合成にだけ使う） */
+var KB_A={'か':'こ','さ':'そ','た':'と','な':'の','は':'ほ','ま':'も','や':'よ','ら':'ろ','わ':'お','あ':'お','が':'ご','ざ':'ぞ','だ':'ど','ば':'ぼ','ぱ':'ぽ'};
+var KB_I={'き':'きゅ','し':'しゅ','ち':'ちゅ','に':'にゅ','ひ':'ひゅ','み':'みゅ','り':'りゅ','ぎ':'ぎゅ','じ':'じゅ','び':'びゅ','い':'ゆ'};
+var KB_E={'け':'きょ','せ':'しょ','て':'ちょ','ね':'にょ','へ':'ひょ','め':'みょ','れ':'りょ','げ':'ぎょ','ぜ':'じょ','で':'じょ','べ':'びょ','え':'よ'};
+function kobunReading(s){
+  if(!s)return s;
+  var t=String(s).replace(/〜|～/g,'').replace(/ゐ/g,'い').replace(/ゑ/g,'え').replace(/を/g,'お')
+    .replace(/ぢ/g,'じ').replace(/づ/g,'ず').replace(/くわ/g,'か').replace(/ぐわ/g,'が');
+  function isW(ch){return !!ch&&/[\u3041-\u3096\u30a1-\u30f6\u4e00-\u9fff\u3005ー]/.test(ch);}
+  var HW={'は':'わ','ひ':'い','ふ':'う','へ':'え','ほ':'お'};
+  var a=t.split(''),fromFu=[];
+  /* 語中・語尾のハ行 → ワ行（あはれ→あわれ、思ひ→思い） */
+  for(var i=0;i<a.length;i++){
+    fromFu[i]=false;
+    if(i>0&&HW[a[i]]&&isW(a[i-1])){if(a[i]==='ふ')fromFu[i]=true;a[i]=HW[a[i]];}
+  }
+  /* 母音の連続（やうやう→ようよう、けふ→きょう、しうと→しゅうと）。
+     語末の動詞「〜ふ」（いふ・たまふ・わらふ）は「いう・たまう・わらう」のまま */
+  var out='';
+  for(var j=0;j<a.length;j++){
+    var c=a[j];
+    if(a[j+1]==='う'){
+      var verbEnd=fromFu[j+1]&&!isW(a[j+2]);
+      if(KB_E[c]){out+=KB_E[c]+'う';j++;continue;}
+      if(!verbEnd&&KB_A[c]){out+=KB_A[c]+'う';j++;continue;}
+      if(!verbEnd&&KB_I[c]){out+=KB_I[c]+'う';j++;continue;}
+    }
+    out+=c;
+  }
+  return out;
+}
+/* defフィールドの呼び名（古文は「用例・品詞」、それ以外は従来どおり「英語定義」） */
+function defLabel(lang){return lang==='kobun'?'用例・品詞':'英語定義';}
+
+function mkDB(){return{words:[],lists:[],folders:[],logs:[],cfg:{size:20,random:true,rev:false,speak:true,autonext:false,autonextSec:1.5,flashSec:2,flashAuto:false,spkMode:'both',duckVol:15,key:'',requeueMax:1,ebbing:true,ebbingMax:5,homeLangFilter:'en',listPlayMode:'foreign',listPlaySec:2,listPlayRepeat:false,themeBg:'#0a0a0f',themeTx:'#f0f0f8',themeAcc:'auto',dictUrls:{en:'https://ejje.weblio.jp/content/{word}',de:'https://www.duden.de/rechtschreibung/{word}',fr:'https://fjjf.weblio.jp/content/{word}',es:'',it:'',kobun:'https://kobun.weblio.jp/content/{word}'}},stats:{streak:0,lastDay:''}};}
 var G=sGet()||mkDB();
 /* 起動時にlocalStorageとembedded-dataを同期 */
 (function(){try{sSet(G);}catch(e){}})();
@@ -1278,6 +1346,7 @@ if(!G.cfg.dictUrls) G.cfg.dictUrls={en:'https://ejje.weblio.jp/content/{word}',d
 if(!G.cfg.dictUrls.en) G.cfg.dictUrls.en='https://ejje.weblio.jp/content/{word}';
 if(!G.cfg.dictUrls.de) G.cfg.dictUrls.de='https://www.duden.de/rechtschreibung/{word}';
 if(!G.cfg.dictUrls.fr) G.cfg.dictUrls.fr='https://fjjf.weblio.jp/content/{word}';
+if(G.cfg.dictUrls.kobun===undefined) G.cfg.dictUrls.kobun='https://kobun.weblio.jp/content/{word}';
 function checkDataSize(){
   var mb=JSON.stringify(G).length/1024/1024;
   var banner=document.getElementById('SIZE-BANNER');
@@ -1842,7 +1911,7 @@ function homeRefresh(){
     var cur=G.cfg.homeLangFilter||'all';
     var html='';
     usedLangs.forEach(function(l){
-      var lbl=l==='all'?'🌐 全て':(LANGS[l]?LANGS[l].flag+' '+(l==='en'?'英語':l==='de'?'ドイツ語':l==='fr'?'フランス語':l==='es'?'スペイン語':l==='it'?'イタリア語':l):l);
+      var lbl=l==='all'?'🌐 全て':(LANGS[l]?LANGS[l].flag+' '+(l==='en'?'英語':l==='de'?'ドイツ語':l==='fr'?'フランス語':l==='es'?'スペイン語':l==='it'?'イタリア語':l==='kobun'?'古文':l):l);
       var sel=cur===l;
       html+='<button onclick="setHomeLangFilter(\''+l+'\')" style="padding:5px 11px;border-radius:20px;border:'+(sel?'2px solid var(--ac)':'1px solid rgba(255,255,255,.15)')+';background:'+(sel?'rgba(124,92,252,.2)':'var(--sf2)')+';color:'+(sel?'var(--tx)':'var(--tx2)')+';font-size:12px;font-weight:'+(sel?'700':'500')+';cursor:pointer;font-family:inherit;white-space:nowrap">'+lbl+'</button>';
     });
@@ -2427,8 +2496,14 @@ function setLang(lang){
   document.querySelectorAll('.lang-sel-btn').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-lang')===lang);});
   updateLevelHint();
   /* プレースホルダー更新 */
-  var ph={en:'例:\nabandon\nabsolute,絶対的な',de:'例:\nHaus\nSchule,学校\narbeiten\nschön,美しい',fr:'例:\nmaison\nécole,学校\ntravail,仕事',es:'例:\ncasa\nescuela,学校\ntrabajo,仕事',it:'例:\ncasa\nscuola,学校\nlavoro,仕事'};
+  var ph={en:'例:\nabandon\nabsolute,絶対的な',de:'例:\nHaus\nSchule,学校\narbeiten\nschön,美しい',fr:'例:\nmaison\nécole,学校\ntravail,仕事',es:'例:\ncasa\nescuela,学校\ntrabajo,仕事',it:'例:\ncasa\nscuola,学校\nlavoro,仕事',kobun:'例:\nあはれなり\nをかし,趣がある\nいと,たいそう\nののしる,大声で騒ぐ'};
   var ta=el('IN-paste-text');if(ta)ta.placeholder=ph[lang]||ph.en;
+  /* 古文では「意味の言語」ボタンの表記を切り替える */
+  var _mlt=el('ML-tl'),_mlb=el('ML-both'),_mlj=el('ML-ja');
+  if(_mlj)_mlj.innerHTML=lang==='kobun'?'🇯🇵<br>現代語訳':'🇯🇵<br>日本語';
+  if(_mlt)_mlt.innerHTML=lang==='kobun'?'📜<br>辞書風':'🌐<br>対象言語';
+  if(_mlb)_mlb.innerHTML=lang==='kobun'?'🔀<br>訳＋品詞':'🔀<br>両方';
+  if(typeof setMeanLang==='function')setMeanLang(selMeanLang);
 }
 
 /* JSON貼り付けモード用セクション */
@@ -2465,7 +2540,7 @@ function parsePaste(){
       var jd=JSON.parse(txt);
 
       /* 言語自動検出 */
-      var LANG_KEY_MAP={german:'de',deutsch:'de',french:'fr',français:'fr',spanish:'es',italiano:'it',english:'en'};
+      var LANG_KEY_MAP={german:'de',deutsch:'de',french:'fr',français:'fr',spanish:'es',italiano:'it',english:'en',kobun:'kobun',kogo:'kobun','古文':'kobun','古語':'kobun'};
       if(typeof jd==='object'&&!Array.isArray(jd)){
         Object.keys(jd).forEach(function(k){
           var lk=k.toLowerCase();
@@ -2486,7 +2561,7 @@ function parsePaste(){
       function extractJW(arr){
         if(!Array.isArray(arr))return[];
         return arr.map(function(item){
-          var w=item.word||item.term||item.front||item.expression||item.vocab||item.german||item.deutsch||item.french||item.spanish||item.english||'';
+          var w=item.word||item.term||item.front||item.expression||item.vocab||item.german||item.deutsch||item.french||item.spanish||item.english||item.kobun||item.kogo||'';
           var m=item.meaning||item.translation||item.back||item.japanese||item.ja||'';
           var df=item.def||item.definition||item.enDef||item.endef||item.foreignMeaning||item.foreign_meaning||item.gloss||'';
           return w?{word:String(w).trim(),meaning:String(m).trim(),def:String(df).trim()}:null;
@@ -2534,9 +2609,11 @@ function parsePaste(){
   var words=[];
   txt.split('\n').forEach(function(line){
     line=line.trim();if(!line)return;
-    var p=line.split(/[,\t]/);
+    /* 古文は全角カンマ「，」でも区切れる。3列目は用例・品詞(def) */
+    var p=line.split(selLang==='kobun'?/[,\t，]/:/[,\t]/);
     var w=(p[0]||'').trim();var m=(p[1]||'').trim();
-    if(w)words.push({word:w,meaning:m});
+    var df=selLang==='kobun'?p.slice(2).join('，').trim():'';
+    if(w)words.push(df?{word:w,meaning:m,def:df}:{word:w,meaning:m});
   });
   if(!words.length){toast('単語が見つかりません');return;}
   needTranslate(words)?doTranslate(words,selLang):prvShow(words);
@@ -2686,8 +2763,9 @@ function fileAiExtract(text, fname){
   var ln=langName(selLang);
   var def=getLevelDef(selLang,fileSelLevel);
   var typeCond={words:'単語のみ（2語以上の熟語・イディオムは含めない）',phrases:'熟語・イディオム・慣用句のみ（2語以上のフレーズ）',both:'単語と熟語・イディオム・慣用句の両方'};
-  var articleRule={en:'',de:'名詞には必ず定冠詞を付けてください（例: der Mann, die Frau, das Kind）。動詞は不定詞形、形容詞は原形で記載してください。',fr:'名詞には必ず定冠詞を付けてください（例: le livre, la maison）。動詞は不定詞形、形容詞は男性単数形で記載してください。',es:'名詞には必ず定冠詞を付けてください（例: el libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。',it:'名詞には必ず定冠詞を付けてください（例: il libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。'};
+  var articleRule={en:'',de:'名詞には必ず定冠詞を付けてください（例: der Mann, die Frau, das Kind）。動詞は不定詞形、形容詞は原形で記載してください。',fr:'名詞には必ず定冠詞を付けてください（例: le livre, la maison）。動詞は不定詞形、形容詞は男性単数形で記載してください。',es:'名詞には必ず定冠詞を付けてください（例: el libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。',it:'名詞には必ず定冠詞を付けてください（例: il libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。',kobun:KOBUN_RULE};
   var articleInstr=articleRule[selLang]||'';
+  if(selLang==='kobun')typeCond=KOBUN_TYPECOND;
   function makePrompt(chunk){
     var meanPart=buildMeaningPromptPart(ln, selMeanLang);
     return '以下の'+ln+'テキストから、「'+def.cond+'」に該当する'+typeCond[fileSelType]+'をできるだけ多く抽出し、'+meanPart+'\n'+
@@ -2785,7 +2863,7 @@ function jsonImport(text, fname){
   function extractWords(arr){
     if(!Array.isArray(arr))return[];
     return arr.map(function(item){
-      var w=item.word||item.term||item.front||item.expression||item.vocab||'';
+      var w=item.word||item.term||item.front||item.expression||item.vocab||item.kobun||item.kogo||'';
       /* 日本語訳: meaning / translation / back / japanese / ja など */
       var m=item.meaning||item.translation||item.back||item.japanese||item.ja||'';
       /* その外国語による意味（英英など）: def / definition / enDef / foreignMeaning など */
@@ -2854,6 +2932,12 @@ var LEVEL_DEF={
     beginner:{hint:'初級 — イタリア語検定（伊検）5級・4級・3級レベルの単語',cond:'イタリア語検定3〜5級レベルの基本的な単語。日常生活の簡単な表現'},
     intermediate:{hint:'中級 — イタリア語検定2級レベルの単語',cond:'イタリア語検定2級レベルの単語。社会・文化・仕事などに使われる語彙'},
     advanced:{hint:'上級 — イタリア語検定1級以上レベルの単語',cond:'イタリア語検定1級以上レベルの高度な単語。学術・専門・文学的な語彙'}
+  },
+  kobun:{
+    all:  {hint:'レベル区別なし — 入試で問われる重要古語を幅広く抽出',cond:'現代語と同じ意味の平易な語や助詞・助動詞を除いた、学習価値のある重要古語'},
+    beginner:{hint:'初級 — 古文単語帳の最重要語（共通テストの基礎）',cond:'古文単語帳で最初に覚える最重要語（例: あはれなり、をかし、いと、ののしる）。共通テストの基礎レベル'},
+    intermediate:{hint:'中級 — 共通テスト・中堅大学入試レベル',cond:'共通テスト・中堅大学で問われる重要古語。現代語と意味が異なる語（古今異義語）や多義語'},
+    advanced:{hint:'上級 — 難関大学入試レベル',cond:'難関国公立・難関私大で問われる難度の高い古語。和歌・物語特有の語、敬語動詞、心情語など'}
   }
 };
 
@@ -2881,6 +2965,11 @@ function setType(type){
 }
 
 /* 意味の言語セレクター */
+var MLANG_HINTS_KOBUN={
+  ja: '入試で問われる現代語訳を登録します（複数の意味は①②…）',
+  tl: '品詞つきの古語辞典風の説明（例:【形動ナリ】①しみじみと趣深い）で登録します',
+  both: '現代語訳と品詞を「／」でつなげて両方登録します'
+};
 var MLANG_HINTS={
   ja: '意味を日本語で登録します',
   tl: '対象言語（英語なら英語、ドイツ語ならドイツ語）で意味・定義を登録します',
@@ -2892,11 +2981,22 @@ function setMeanLang(ml){
     b.classList.toggle('on', b.getAttribute('data-mlang')===ml);
   });
   var h=el('MLANG-hint');
-  if(h) h.textContent=MLANG_HINTS[ml]||'';
+  if(h) h.textContent=(selLang==='kobun'?MLANG_HINTS_KOBUN:MLANG_HINTS)[ml]||'';
 }
 
 /* 意味プロンプトを選択に応じて組み立てる共通ヘルパー */
 function buildMeaningPromptPart(ln, mlang){
+  if(selLang==='kobun'){
+    if(mlang==='tl'){
+      return 'それぞれ古語辞典のように「【品詞】①意味 ②意味」の形式で、日本語の説明を付けてください。\n'+
+        'JSON例: {"words":[{"word":"あはれなり","meaning":"【形容動詞・ナリ】①しみじみと趣深い ②気の毒だ"}]}';
+    } else if(mlang==='both'){
+      return '意味フィールドに「現代語訳 ／ 品詞」の形式で両方を記載してください。\n'+
+        'JSON例: {"words":[{"word":"あはれなり","meaning":"①しみじみと趣深い ②気の毒だ ／ 形容動詞・ナリ活用"}]}';
+    }
+    return 'それぞれ大学入試で問われる現代語訳を付けてください（複数の意味は「①…②…」）。\n'+
+      'JSON例: {"words":[{"word":"あはれなり","meaning":"①しみじみと趣深い ②気の毒だ"}]}';
+  }
   if(mlang==='ja'){
     return 'それぞれ日本語訳をつけてください。\n'+
       'JSON例: {"words":[{"word":"abandon","meaning":"捨てる、放棄する"}]}';
@@ -2990,7 +3090,7 @@ function aiExtractAPI(txt){
   /* ── スラッシュ区切りの単語リスト形式を検出 ── */
   var slashCount=(txt.match(/ \/ /g)||[]).length;
   var lineCount=txt.split('\n').filter(function(l){return l.trim();}).length;
-  var isWordList= slashCount > 20 && slashCount > lineCount * 0.5;
+  var isWordList= selLang!=='kobun' && slashCount > 20 && slashCount > lineCount * 0.5;
 
   if(isWordList){
     loading('単語リストを解析中...');
@@ -3044,9 +3144,11 @@ function aiExtractAPI(txt){
     de:'名詞には必ず定冠詞を付けてください（例: der Mann, die Frau, das Kind）。動詞は不定詞形（例: gehen, haben）、形容詞は原形で記載してください。',
     fr:"名詞には必ず定冠詞を付けてください（例: le livre, la maison, l\'école）。動詞は不定詞形（例: aller, avoir）、形容詞は男性単数形で記載してください。",
     es:'名詞には必ず定冠詞を付けてください（例: el libro, la casa）。動詞は不定詞形（例: ir, tener）、形容詞は男性単数形で記載してください。',
-    it:'名詞には必ず定冠詞を付けてください（例: il libro, la casa, lo studente）。動詞は不定詞形（例: andare, avere）、形容詞は男性単数形で記載してください。'
+    it:'名詞には必ず定冠詞を付けてください（例: il libro, la casa, lo studente）。動詞は不定詞形（例: andare, avere）、形容詞は男性単数形で記載してください。',
+    kobun:KOBUN_RULE
   };
   var articleInstr=articleRule[selLang]||'';
+  if(selLang==='kobun')typeCond=KOBUN_TYPECOND;
   var ni=el('IN-ai-name');
   if(ni&&!ni.value)ni.value=(LANGS[selLang]?LANGS[selLang].name:'')+'_'+(levelLabel[selLevel]||'')+(typeLabel[selType]||'')+'AI抽出';
 
@@ -3110,9 +3212,11 @@ function camAiExtract(dataUrl){
     de:'名詞には必ず定冠詞を付けてください（例: der Mann, die Frau, das Kind）。動詞は不定詞形、形容詞は原形で記載してください。',
     fr:'名詞には必ず定冠詞を付けてください（例: le livre, la maison）。動詞は不定詞形、形容詞は男性単数形で記載してください。',
     es:'名詞には必ず定冠詞を付けてください（例: el libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。',
-    it:'名詞には必ず定冠詞を付けてください（例: il libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。'
+    it:'名詞には必ず定冠詞を付けてください（例: il libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。',
+    kobun:KOBUN_RULE
   };
   var articleInstr=articleRule[selLang]||'';
+  if(selLang==='kobun')typeCond=KOBUN_TYPECOND;
 
   var prompt=
     'この画像に写っている'+ln+'のテキストから、「'+def.cond+'」に該当する'+typeCond[selType]+'をできるだけ多く抽出し、'+buildMeaningPromptPart(ln, selMeanLang)+'\n'+
@@ -3182,7 +3286,12 @@ function translateInChunks(words, lang, callback){
     loading('翻訳中... ('+Math.min(idx+chunkSize,total)+'/'+total+'語)');
     var wordList=noMeaning.map(function(w){return w.word;}).join(' / ');
     var meanInstr;
-    if(selMeanLang==='tl'){
+    if(lang==='kobun'){
+      meanInstr=(selMeanLang==='tl'?'各古語に古語辞典のような「【品詞】①意味 ②意味」形式の日本語の説明を付けてください。\n':
+        selMeanLang==='both'?'各古語に「現代語訳 ／ 品詞」の形式で意味を付けてください。\n':
+        '各古語に大学入試で問われる現代語訳を付けてください（複数の意味は「①…②…」の形式で簡潔に）。\n')+
+        'JSONのみで返してください（```不要）: {"translations":{"あはれなり":"①しみじみと趣深い ②気の毒だ","ののしる":"①大声で騒ぐ ②評判になる"}}';
+    } else if(selMeanLang==='tl'){
       meanInstr='各単語・熟語の'+ln+'での意味・定義を簡潔に付けてください（日本語は使わないでください）。\n'+
         'JSONのみで返してください（```不要）: {"translations":{"abandon":"to leave someone or something permanently"}}';
     } else if(selMeanLang==='both'){
@@ -3233,6 +3342,7 @@ function translateInChunks(words, lang, callback){
   nextChunk();
 }
 function offlineExtract(txt){
+  if(selLang==='kobun'){toast('古文はオフライン抽出に対応していません。APIキーを設定するとAIで抽出できます');return;}
   var common={the:1,be:1,is:1,are:1,was:1,were:1,have:1,has:1,had:1,do:1,does:1,did:1,will:1,would:1,shall:1,should:1,may:1,might:1,must:1,can:1,could:1,a:1,an:1,in:1,on:1,at:1,to:1,for:1,of:1,and:1,or:1,but:1,not:1,this:1,that:1,with:1,from:1,by:1,as:1,up:1,out:1,if:1,about:1,who:1,what:1,which:1,all:1,when:1,so:1,no:1,just:1,into:1,over:1,after:1,also:1,than:1,only:1,they:1,their:1,you:1,we:1,he:1,she:1,me:1,my:1,us:1,him:1,it:1,i:1,
     der:1,die:1,das:1,ein:1,eine:1,und:1,oder:1,aber:1,nicht:1,ist:1,sind:1,war:1,hat:1,haben:1,mit:1,von:1,aus:1,bei:1,nach:1,zum:1,zur:1,dem:1,den:1,des:1,
     le:1,la:1,les:1,un:1,une:1,des:1,et:1,ou:1,est:1,sont:1,pas:1,que:1,qui:1,dans:1,sur:1,avec:1,par:1,
@@ -3252,7 +3362,7 @@ function doTranslate(words,lang){
   loading(nm.length+'単語を翻訳中...');
   apiCall({
     model:'claude-haiku-4-5-20251001',max_tokens:2048,
-    messages:[{role:'user',content:'以下の'+ln+'の単語に日本語訳をつけてください。JSONのみで返してください: {"translations":{"Haus":"家",...}}\\n\\n単語: '+nm.map(function(w){return w.word;}).join(', ')}]
+    messages:[{role:'user',content:(lang==='kobun'?'以下の古語に大学入試で問われる現代語訳をつけてください（複数の意味は「①…②…」）。JSONのみで返してください: {"translations":{"あはれなり":"①しみじみと趣深い ②気の毒だ",...}}\n\n単語: ':'以下の'+ln+'の単語に日本語訳をつけてください。JSONのみで返してください: {"translations":{"Haus":"家",...}}\\n\\n単語: ')+nm.map(function(w){return w.word;}).join(', ')}]
   },function(d){
     try{var m=d.content[0].text.match(/\{[\s\S]*\}/);if(m){var tr=JSON.parse(m[0]).translations||{};words.forEach(function(w){if(!w.meaning&&tr[w.word])w.meaning=tr[w.word];});}}catch(e){}
     loaded();prvShow(words);
@@ -3281,7 +3391,7 @@ function saveList(){
   for(var i=0;i<G.lists.length;i++){if(G.lists[i].name===listName){lst=G.lists[i];break;}}
   if(!lst){
     var clrs=['#7c5cfc','#fc5c7d','#5cf8fc','#ffd700','#4cff91','#ff9c4c'];
-    var langClr={en:'#4cff91',de:'#ffd700',fr:'#5cf8fc',es:'#ff9c4c',it:'#fc5c7d'};
+    var langClr={en:'#4cff91',de:'#ffd700',fr:'#5cf8fc',es:'#ff9c4c',it:'#fc5c7d',kobun:'#d4a373'};
     lst={id:uid(),name:listName,ic:LANGS[selLang]?LANGS[selLang].flag:'📗',clr:langClr[selLang]||clrs[G.lists.length%clrs.length],lang:selLang,cr:new Date().toISOString()};
     G.lists.push(lst);
   }
@@ -3324,12 +3434,17 @@ function generateDefs(words, cb){
     var batch=batches[idx];
     var sampleLang=langName2(batch[0].lang||'en');
     var items=batch.map(function(w){return '"'+w.id+'":'+JSON.stringify(w.word);}).join(',');
-    var prompt='You are a monolingual dictionary. For each '+sampleLang+' word/phrase below, '+
+    var prompt=(batch[0].lang==='kobun')?
+      'あなたは高校生向け古語辞典の編集者です。以下の各古語について、「【品詞・活用】短い用例（その現代語訳）」の形式で、1行の補足を日本語で書いてください。'+
+      '例: 【形容動詞・ナリ】夕暮れはいとあはれなり。（夕暮れはたいそうしみじみと趣深い。） '+
+      '用例は短い自作の文でかまいません。作品名・出典は書かないでください。'+
+      'JSONのみで返してください: {"id":"補足",...}\n\n{'+items+'}':
+      'You are a monolingual dictionary. For each '+sampleLang+' word/phrase below, '+
       'write a concise '+sampleLang+' definition (1 sentence, max 12 words). '+
       'Rules: write only in '+sampleLang+', never translate, define the word using other '+sampleLang+' words, '+
       'do not repeat the word itself in the definition. '+
       'Return ONLY valid JSON: {"id":"definition",...}\n\n{'+items+'}';
-    var body={model:'claude-haiku-4-5-20251001',max_tokens:1200,
+    var body={model:'claude-haiku-4-5-20251001',max_tokens:batch[0].lang==='kobun'?2400:1200,
       messages:[{role:'user',content:prompt}]};
     var xhr=new XMLHttpRequest();
     xhr.open('POST','https://api.anthropic.com/v1/messages',true);
@@ -3363,10 +3478,11 @@ function bulkGenerateDefs(lid, onDone){
   if(!G.cfg.key){toast('🔑 APIキーが必要です（設定 → APIキー）');return;}
   var words=G.words.filter(function(w){return w.lid===lid&&!w.def;});
   if(!words.length){toast('✅ すべての単語に定義があります');return;}
-  toast('🔄 英語定義を生成中... ('+words.length+'語)');
+  var _dl=defLabel(words[0].lang);
+  toast('🔄 '+_dl+'を生成中... ('+words.length+'語)');
   generateDefs(words, function(){
     save();
-    toast('✅ '+words.length+'語の英語定義を生成しました');
+    toast('✅ '+words.length+'語の'+_dl+'を生成しました');
     if(onDone) onDone();
   });
 }
@@ -3648,7 +3764,7 @@ function listMenu(lid){
       '<button class="btn-sec" id="LM-phrases-only"'+(pCnt<2?' style="opacity:.4;pointer-events:none"':'')+'>💬 熟語（'+pStudied+'/'+pCnt+'）</button>'+
     '</div>'+
     '<button class="btn-sec" id="LM-list" style="margin-top:0;margin-bottom:8px">📚 単語一覧を見る</button>'+
-    '<button class="btn-sec" id="LM-gen-defs" style="margin-top:0;margin-bottom:8px'+(G.cfg.key?'':';opacity:.4')+'">'+(function(){var nd=G.words.filter(function(w){return w.lid===lid&&!w.def;}).length;return (G.cfg.key?'📖':'📖🔑')+' 英語定義を補完'+(nd?' (未定義:'+nd+'語)':'（完了済み）');})()+'</button>'+
+    '<button class="btn-sec" id="LM-gen-defs" style="margin-top:0;margin-bottom:8px'+(G.cfg.key?'':';opacity:.4')+'">'+(function(){var nd=G.words.filter(function(w){return w.lid===lid&&!w.def;}).length;return (G.cfg.key?'📖':'📖🔑')+' '+defLabel(lst.lang)+'を補完'+(nd?' (未定義:'+nd+'語)':'（完了済み）');})()+'</button>'+
     '<button class="btn-sec" id="LM-adopt" style="margin-top:0;margin-bottom:8px">🔗 別リストから学習履歴を引き継ぐ</button>'+
     '<button class="btn-sec" id="LM-edit" style="margin-top:0">✏️ リストを編集</button>';
   el('modal-bg').classList.add('on');
@@ -4110,8 +4226,8 @@ function editWord(wid){
     '<input class="inp" id="EW-word" type="text" value="'+escHtml(w.word)+'" style="margin-bottom:12px">'+
     '<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">意味（日本語）</div>'+
     '<input class="inp" id="EW-meaning" type="text" value="'+escHtml(w.meaning||'')+'" style="margin-bottom:12px">'+
-    '<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">英語定義</div>'+
-    '<input class="inp" id="EW-def" type="text" value="'+escHtml(w.def||'')+'" placeholder="例: to leave someone or something permanently" style="margin-bottom:12px">'+
+    '<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">'+defLabel(w.lang)+'</div>'+
+    '<input class="inp" id="EW-def" type="text" value="'+escHtml(w.def||'')+'" placeholder="'+(w.lang==='kobun'?'例: 【形容動詞・ナリ】夕暮れはいとあはれなり。（夕暮れはたいそうしみじみと趣深い。）':'例: to leave someone or something permanently')+'" style="margin-bottom:12px">'+
     '<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">言語</div>'+
     '<select class="inp" id="EW-lang" style="margin-bottom:12px">'+langOpts+'</select>'+
     '<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">所属リスト</div>'+
@@ -4248,7 +4364,7 @@ function selMoveAll(){
 
 
 /* ---------- SPEECH ---------- */
-var LANG_VOICE={en:'en-US',de:'de-DE',fr:'fr-FR',es:'es-ES',it:'it-IT',ja:'ja-JP'};
+var LANG_VOICE={en:'en-US',de:'de-DE',fr:'fr-FR',es:'es-ES',it:'it-IT',kobun:'ja-JP',ja:'ja-JP'};
 
 /* ── 読み上げの声の選択 ──
    端末にインストールされている声の中から最も高品質なものを自動選択する。
@@ -4313,7 +4429,7 @@ var LANG_REGIONS={
   en:[['en-US','アメリカ英語'],['en-GB','イギリス英語'],['en-AU','オーストラリア英語']],
   fr:[['fr-FR','フランス'],['fr-CA','カナダ']],
   es:[['es-ES','スペイン'],['es-MX','メキシコ']],
-  de:[['de-DE','ドイツ']],it:[['it-IT','イタリア']],ja:[['ja-JP','日本']]
+  de:[['de-DE','ドイツ']],it:[['it-IT','イタリア']],kobun:[['ja-JP','日本']],ja:[['ja-JP','日本']]
 };
 /* langOrBcp: 'en'のような2文字コード、または'en-US'のようなBCPコード
    返り値: {v: 使う声(null=OS既定に任せる), bcp: 言語タグ}
@@ -4322,7 +4438,8 @@ var LANG_REGIONS={
      またダウンロード済みの拡張/プレミアム声はアプリ再起動後に一覧へ現れる
      ことが多く、その場合は直接指定できる */
 function pickVoiceInfo(langOrBcp){
-  var key=(langOrBcp||'en').slice(0,2).toLowerCase();
+  var key=(langOrBcp||'en').toLowerCase();
+  if(!LANG_VOICE.hasOwnProperty(key))key=key.slice(0,2); /* 'kobun'のような2文字でないコードにも対応 */
   var bcp=LANG_VOICE[key]||langOrBcp||'en-US';
   if(!window.speechSynthesis)return {v:null,bcp:bcp};
   if(!VOICES.loaded)voicesRefresh();
@@ -4376,7 +4493,7 @@ function voiceFillSelect(){
   var ls=el('VOICE-lang'),vs=el('VOICE-sel');
   if(!ls||!vs)return;
   if(!ls.options.length){
-    var names={en:'🇬🇧 英語',de:'🇩🇪 ドイツ語',fr:'🇫🇷 フランス語',es:'🇪🇸 スペイン語',it:'🇮🇹 イタリア語',ja:'🇯🇵 日本語'};
+    var names={en:'🇬🇧 英語',de:'🇩🇪 ドイツ語',fr:'🇫🇷 フランス語',es:'🇪🇸 スペイン語',it:'🇮🇹 イタリア語',kobun:'📜 古文',ja:'🇯🇵 日本語'};
     Object.keys(LANG_VOICE).forEach(function(k){
       var o=document.createElement('option');o.value=k;o.textContent=names[k]||k;ls.appendChild(o);
     });
@@ -4441,7 +4558,7 @@ function speak(text, lang){
   /* 直前まで再生中だった場合のみキャンセル（不要なcancelは途切れの原因になる） */
   var wasActive=ss.speaking||ss.pending;
   if(wasActive){try{ss.cancel();}catch(e){}}
-  var u=new SpeechSynthesisUtterance(text);
+  var u=new SpeechSynthesisUtterance(lang==='kobun'?kobunReading(text):text);
   SPEAK_KEEP=u; /* GC破棄防止 */
   u.lang=LANG_VOICE[lang||'en']||'en-US';
   applyVoice(u,lang||'en');
@@ -4500,7 +4617,7 @@ function sqNext(){
   if(!window.speechSynthesis){SQ.busy=false;sqNext();return;}
   try{window.speechSynthesis.cancel();}catch(e){}
   setTimeout(function(){
-    var u=new SpeechSynthesisUtterance(item.text);
+    var u=new SpeechSynthesisUtterance(item.lang==='kobun'?kobunReading(item.text):item.text);
     SPEAK_KEEP=u; /* GC破棄防止 */
     u.lang=LANG_VOICE[item.lang]||item.lang||'en-US';
     applyVoice(u,item.lang||'en');
@@ -4607,7 +4724,7 @@ function flRender(){
 
     /* ① 外国語読み上げ → 800ms後にshowMeaning */
     if(doForeign&&w.word){
-      sayThen(w.word, LANG_VOICE[w.lang||'en']||'en-US', function(){
+      sayThen(w.lang==='kobun'?kobunReading(w.word):w.word, LANG_VOICE[w.lang||'en']||'en-US', function(){
         setTimeout(showMeaning, 800);
       });
     } else {
@@ -5563,7 +5680,7 @@ function buildCombinedReportHTML(title, now, sessions, totalQ, ok, ng, acc, tota
   }
 
   /* 日別テーブル */
-  var langNames={en:'英語',de:'ドイツ語',fr:'フランス語',es:'スペイン語',it:'イタリア語'};
+  var langNames={en:'英語',de:'ドイツ語',fr:'フランス語',es:'スペイン語',it:'イタリア語',kobun:'古文'};
   var dayRows='';
   dayKeys.forEach(function(d){
     var r=dayMap[d],a=r.total?Math.round(r.ok/r.total*100):0;
@@ -5972,7 +6089,7 @@ function quizStart(mode,lid){
 
 function isPhrase(word){
   /* スペースを含む場合は熟語とみなす */
-  return word && word.trim().indexOf(' ')>=0;
+  return !!word && (word.trim().indexOf(' ')>=0 || /[〜～]/.test(word));
 }
 
 /* ── クイズ初期化の共通関数 ──
@@ -6063,7 +6180,11 @@ function levDist(a,b){
 function tpNorm(s){return (s||'').trim().toLowerCase().replace(/\s+/g,' ');}
 /* 判定用：アルファベット(a-z)以外（スペース・記号 [] 〜 - 等）をすべて無視して比較する。
    これにより、ユーザーは記号やスペースを入力しなくても、英字が合っていれば正解になる。 */
-function tpAlpha(s){return (s||'').toLowerCase().replace(/[^a-z]/g,'');}
+function tpAlpha(s){
+  /* 古文などのかな入力にも対応：カタカナはひらがなに揃え、かな・漢字は比較対象に残す */
+  s=(s||'').toLowerCase().replace(/[\u30a1-\u30f6]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0x60);});
+  return s.replace(/[^a-z\u3041-\u3096\u309d\u309e\u30fc\u3005\u4e00-\u9fff]/g,'');
+}
 function tpDiffMark(input,ans){
   var h='';
   for(var i=0;i<Math.max(input.length,ans.length);i++){
@@ -6135,7 +6256,7 @@ function fitQuizWord(maxLines){
 }
 
 function qRenderType(q){
-  el('QZ-badge').textContent='⌨️ 英単語をタイプ（手がかりなし）';
+  el('QZ-badge').textContent=q.lang==='kobun'?'⌨️ 古語をひらがなでタイプ（歴史的仮名遣い）':'⌨️ 英単語をタイプ（手がかりなし）';
   /* 問題カードとヘッダーを画面に固定し、キーボード表示中も見えるようにする */
   (function(){
     var _qb=document.querySelector('.qz-body');if(_qb)_qb.classList.add('tp-mode');
@@ -6158,7 +6279,7 @@ function qRenderType(q){
   var MAX=3;
   el('QZ-choices').innerHTML=
     '<div style="text-align:right;font-size:12px;color:var(--tx2);margin-bottom:6px">残り入力 <span id="TP-left">'+MAX+'</span>回</div>'+
-    '<input class="tp-input" id="TP-in" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="英字だけでOK（記号・空白は不要）">'+
+    '<input class="tp-input" id="TP-in" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="'+(q.lang==='kobun'?'歴史的仮名遣いのひらがなで（例: あはれなり）':'英字だけでOK（記号・空白は不要）')+'">'+
     '<div class="tp-hint" id="TP-hint"></div>'+
     '<div class="tp-row">'+
       '<button class="tp-btn tp-sub" id="TP-hintbtn">💡 ヒント</button>'+
@@ -6175,7 +6296,7 @@ function qRenderType(q){
     var va=tpAlpha(IN.value), ansA=tpAlpha(word); /* 記号・スペースを無視した比較用 */
     Q.spell.tries++;
     updateLeft();
-    if(va===ansA){
+    if(ansA?va===ansA:v===ans){
       /* 正解（英字が一致すれば、記号やスペースの有無は問わない） */
       IN.className='tp-input ok';IN.disabled=true;
       seDone();
@@ -6852,7 +6973,8 @@ function qRender(){
     rev=false;Q.rev=false;
   }
 
-  el('QZ-badge').textContent=useDef?'英語の意味を選べ':(rev?(l?l.name:'外国語')+'を選べ':'日本語を選べ');
+  var _kb=(q.lang==='kobun');
+  el('QZ-badge').textContent=useDef?(_kb?'用例・品詞を選べ':'英語の意味を選べ'):(rev?(_kb?'古語':(l?l.name:'外国語'))+'を選べ':(_kb?'現代語訳を選べ':'日本語を選べ'));
   var displayWord=rev?(q.meaning||q.word):q.word;
   el('QZ-word').textContent=displayWord;
   Q.done=false;
@@ -7204,7 +7326,7 @@ function settingsLoad(){
   /* 辞書URL設定行 */
   var _dc=el('DICT-URL-ROWS');
   if(_dc){
-    var _langs=[['en','🇬🇧 英語'],['de','🇩🇪 ドイツ語'],['fr','🇫🇷 フランス語'],['es','🇪🇸 スペイン語'],['it','🇮🇹 イタリア語']];
+    var _langs=[['en','🇬🇧 英語'],['de','🇩🇪 ドイツ語'],['fr','🇫🇷 フランス語'],['es','🇪🇸 スペイン語'],['it','🇮🇹 イタリア語'],['kobun','📜 古文']];
     if(!G.cfg.dictUrls)G.cfg.dictUrls={en:'https://ejje.weblio.jp/content/{word}',de:'https://www.duden.de/rechtschreibung/{word}',fr:'https://fjjf.weblio.jp/content/{word}',es:'',it:''};
     _dc.innerHTML=_langs.map(function(lv){
       return '<div style="padding:8px 16px;border-top:1px solid rgba(255,255,255,.05)">'+
@@ -7968,7 +8090,7 @@ function buildHelpHTML(){
   h += '</div>';
   h += '<div style="background:rgba(124,92,252,.08);border:1px solid rgba(124,92,252,.2);border-radius:14px;padding:14px;margin-bottom:14px">';
   h += '<div style="font-size:13px;font-weight:700;color:var(--ac);margin-bottom:8px">🎯 LinguaMemoriaとは？</div>';
-  h += '<div style="font-size:12px;color:var(--tx);line-height:1.8">エビングハウス忘却曲線に基づくSRSアルゴリズムで、<b style="color:var(--ac2)">英語・ドイツ語・フランス語・スペイン語・イタリア語</b>の単語を効率的に暗記できるアプリです。AIによる自動翻訳・抽出にも対応しています。</div>';
+  h += '<div style="font-size:12px;color:var(--tx);line-height:1.8">エビングハウス忘却曲線に基づくSRSアルゴリズムで、<b style="color:var(--ac2)">英語・ドイツ語・フランス語・スペイン語・イタリア語・古文</b>の単語を効率的に暗記できるアプリです。AIによる自動翻訳・抽出にも対応しています。</div>';
   h += '</div>';
   h += '<div style="font-size:11px;font-weight:700;color:var(--tx2);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">🔧 主要機能</div>';
   h += '<div style="display:flex;flex-direction:column;gap:7px;margin-bottom:16px">';
