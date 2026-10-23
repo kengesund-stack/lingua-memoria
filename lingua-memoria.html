@@ -1,5 +1,7 @@
 <html lang="ja"><head>
 <meta charset="UTF-8">
+<!-- 🔒 外部への通信(fetch/XHR等)を全面禁止。スクリプトは本体と cdnjs(Excel読込・QR表示用)のみ許可 -->
+<meta http-equiv="Content-Security-Policy" content="connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -390,7 +392,7 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 </style>
 </head>
 <body>
-<script id="embedded-data" type="application/json">{"words":[],"lists":[],"folders":[],"cfg":{"size":10,"rev":false,"key":"","flashSec":2,"autonext":true,"flashAuto":true,"duckVol":80,"autonextSec":1,"random":true,"autoQuiz":true,"cloudAuto":false,"requeueMax":1,"ebbing":true,"spkMode":"both","homeLangFilter":"en","listPlayMode":"both","listPlaySec":2,"listPlayRepeat":false,"dictUrls":{"en":"https://ejje.weblio.jp/content/{word}","de":"https://www.duden.de/woerterbuch","fr":"https://fjjf.weblio.jp/","es":"","it":""}},"stats":{"streak":0,"lastDay":""},"logs":[],"ebbing":{},"_ebbingRestored":true,"_savedAt":1772873835452}</script>
+<script id="embedded-data" type="application/json">{"words":[],"lists":[],"folders":[],"cfg":{"size":10,"rev":false,"flashSec":2,"autonext":true,"flashAuto":true,"duckVol":80,"autonextSec":1,"random":true,"autoQuiz":true,"cloudAuto":false,"requeueMax":1,"ebbing":true,"spkMode":"both","homeLangFilter":"en","listPlayMode":"both","listPlaySec":2,"listPlayRepeat":false,"dictUrls":{"en":"https://ejje.weblio.jp/content/{word}","de":"https://www.duden.de/woerterbuch","fr":"https://fjjf.weblio.jp/","es":"","it":""}},"stats":{"streak":0,"lastDay":""},"logs":[],"ebbing":{},"_ebbingRestored":true,"_savedAt":1772873835452}</script>
 <div id="app">
 
 <div class="ld-bg" id="ld"><div class="spin"></div><div class="ld-tx" id="ld-tx">処理中...</div></div>
@@ -475,7 +477,7 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
       <div class="due-n" id="H-fresh">0</div>
     </button>
     <div class="act-grid">
-      <button class="act-card" id="B-go-add"><span class="act-ic">➕</span><div class="act-title">単語を追加</div><div class="act-sub">テキスト・ファイル・AI</div></button>
+      <button class="act-card" id="B-go-add"><span class="act-ic">➕</span><div class="act-title">単語を追加</div><div class="act-sub">テキスト・ファイル</div></button>
       <button class="act-card" id="B-quiz-all"><span class="act-ic">⚡</span><div class="act-title">全単語クイズ</div><div class="act-sub">4択形式で練習</div></button>
       <button class="act-card" id="B-go-list"><span class="act-ic">📚</span><div class="act-title">単語一覧</div><div class="act-sub">管理・編集</div></button>
       <button class="act-card" id="B-quiz-weak"><span class="act-ic">🎯</span><div class="act-title">苦手単語</div><div class="act-sub">間違えた単語を特訓</div></button>
@@ -515,7 +517,6 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
     <div class="seg">
       <button class="seg-btn" id="SG-paste">貼り付け</button>
       <button class="seg-btn on" id="SG-file">ファイル</button>
-      <button class="seg-btn" id="SG-ai">AI抽出<span class="ai-tag">AI</span></button>
     </div>
 
     <!-- 言語選択（共通） -->
@@ -554,7 +555,7 @@ schön,美しい"></textarea>
           <button class="opt-btn" data-pjsec="phrases" id="PJSEC-phrase" style="flex:1;padding:7px;font-size:11px">💬<br>熟語のみ</button>
         </div>
       </div>
-      <div class="hint" id="PASTE-hint">テキスト形式（1行1単語 / 「単語,訳」）または JSON テキストをそのまま貼り付けられます。訳なしの単語はAPIキー設定でAI自動翻訳できます。</div>
+      <div class="hint" id="PASTE-hint">テキスト形式（1行1単語 / 「単語,訳」）または JSON テキストをそのまま貼り付けられます。訳なしの単語もそのまま登録でき、あとから編集で訳を追加できます。</div>
 
       <!-- JSON形式サンプル（折り畳み） -->
       <div id="JSON-sample-wrap" style="margin-bottom:12px">
@@ -662,7 +663,6 @@ schön,美しい"></textarea>
       <div style="display:flex;gap:7px;margin-bottom:12px">
         <button class="opt-btn" data-fmode="vocab" id="FM-vocab" style="flex:1;padding:8px">📋<br>単語リスト<br><span style="font-size:9px;opacity:.7">CSV/Excel</span></button>
         <button class="opt-btn on" data-fmode="json" id="FM-json" style="flex:1;padding:8px">📗<br>JSON読込<br><span style="font-size:9px;opacity:.7">外部JSON</span></button>
-        <button class="opt-btn" data-fmode="extract" id="FM-extract" style="flex:1;padding:8px">✨<br>AIで抽出<br><span style="font-size:9px;opacity:.7">Word/PDF/TXT</span></button>
       </div>
       <div class="upload" id="B-upload">
         <div class="upload-ic" id="UP-ic">📗</div>
@@ -671,22 +671,6 @@ schön,美しい"></textarea>
       </div>
       <input type="file" id="IN-file" accept=".json" style="display:none">
       <div class="hint" id="UP-hint">book_title / content / vocabulary / phrases などを自動認識します</div>
-      <!-- AI抽出モードのオプション（ファイル用） -->
-      <div id="FILE-ai-opts" style="display:none">
-        <div class="lbl">抽出レベル</div>
-        <div class="lang-sel-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:4px">
-          <button class="opt-btn on" data-level="all" id="FLV-all">🔀<br>区別なし</button>
-          <button class="opt-btn" data-level="beginner" id="FLV-beginner">🌱<br>初級</button>
-          <button class="opt-btn" data-level="intermediate" id="FLV-intermediate">📘<br>中級</button>
-          <button class="opt-btn" data-level="advanced" id="FLV-advanced">🔥<br>上級</button>
-        </div>
-        <div class="lbl" style="margin-top:8px">抽出タイプ</div>
-        <div style="display:flex;gap:7px;margin-bottom:4px">
-          <button class="opt-btn on" data-type="words" id="FTY-words" style="flex:1;padding:7px">📝<br>単語のみ</button>
-          <button class="opt-btn" data-type="phrases" id="FTY-phrases" style="flex:1;padding:7px">💬<br>熟語のみ</button>
-          <button class="opt-btn" data-type="both" id="FTY-both" style="flex:1;padding:7px">✨<br>単語＋熟語</button>
-        </div>
-      </div>
       <!-- JSONモードのオプション -->
       <div id="FILE-json-opts" style="display: block;">
         <div style="background:var(--sf);border-radius:var(--r);padding:11px 13px;margin-bottom:10px;font-size:11px;color:var(--tx2);line-height:1.7">
@@ -705,71 +689,6 @@ schön,美しい"></textarea>
         </div>
       </div>
     </div>
-
-    <!-- AI -->
-    <div id="TP-ai" style="display:none">
-      <div class="lbl">リスト名</div>
-      <input class="inp" id="IN-ai-name" type="text" placeholder="例: 小説から抽出">
-      <div class="lbl">抽出レベル</div>
-      <div class="lang-sel-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:4px">
-        <button class="opt-btn on" data-level="all" id="LV-all">🔀<br>区別<br>なし</button>
-        <button class="opt-btn" data-level="beginner" id="LV-beginner">🌱<br>初級</button>
-        <button class="opt-btn" data-level="intermediate" id="LV-intermediate">📘<br>中級</button>
-        <button class="opt-btn" data-level="advanced" id="LV-advanced">🔥<br>上級</button>
-      </div>
-      <div id="LV-hint" style="font-size:10px;color:var(--tx2);margin-bottom:12px;line-height:1.6;padding:7px 10px;background:var(--sf);border-radius:9px">レベル区別なし — 学習価値のある単語を幅広く抽出</div>
-      <div class="lbl">抽出タイプ</div>
-      <div style="display:flex;gap:7px;margin-bottom:12px">
-        <button class="opt-btn on" data-type="words" id="TY-words" style="flex:1;padding:8px">📝<br>単語のみ</button>
-        <button class="opt-btn" data-type="phrases" id="TY-phrases" style="flex:1;padding:8px">💬<br>熟語のみ</button>
-        <button class="opt-btn" data-type="both" id="TY-both" style="flex:1;padding:8px">✨<br>単語＋熟語</button>
-      </div>
-
-      <div class="lbl">意味の言語</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:6px" id="MLANG-btns">
-        <button class="opt-btn on" data-mlang="ja" id="ML-ja" style="padding:8px;font-size:11px">🇯🇵<br>日本語</button>
-        <button class="opt-btn" data-mlang="tl" id="ML-tl" style="padding:8px;font-size:11px">🌐<br>対象言語</button>
-        <button class="opt-btn" data-mlang="both" id="ML-both" style="padding:8px;font-size:11px">🔀<br>両方</button>
-      </div>
-      <div id="MLANG-hint" style="font-size:10px;color:var(--tx2);margin-bottom:12px;line-height:1.6;padding:7px 10px;background:var(--sf);border-radius:9px">意味を日本語で登録します</div>
-
-      <!-- カメラ撮影エリア -->
-      <div class="lbl">📷 写真から抽出（カメラ・画像）</div>
-      <div id="CAM-area">
-        <div id="CAM-btns" style="display:flex;gap:8px;margin-bottom:10px">
-          <button id="B-cam-shoot" style="flex:1;padding:13px 8px;background:linear-gradient(135deg,rgba(124,92,252,.25),rgba(92,248,252,.15));border:1.5px solid rgba(124,92,252,.5);border-radius:var(--r);color:var(--tx);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:5px;-webkit-appearance:none">
-            <span style="font-size:26px">📷</span>カメラで撮影
-          </button>
-          <button id="B-cam-gallery" style="flex:1;padding:13px 8px;background:var(--sf2);border:1.5px solid rgba(255,255,255,.12);border-radius:var(--r);color:var(--tx);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;gap:5px;-webkit-appearance:none">
-            <span style="font-size:26px">🖼️</span>画像を選択
-          </button>
-        </div>
-        <div id="CAM-preview-wrap" style="display:none;margin-bottom:10px">
-          <div style="position:relative;border-radius:var(--r);overflow:hidden;background:var(--sf2)">
-            <img id="CAM-preview-img" style="width:100%;max-height:260px;object-fit:contain;display:block" alt="">
-            <button id="B-cam-retake" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;font-size:12px;font-weight:600;padding:5px 11px;cursor:pointer;font-family:inherit">✕ 撮り直す</button>
-          </div>
-          <button class="btn-primary" id="B-cam-extract" style="margin-top:10px">📷 この画像から単語を抽出</button>
-        </div>
-      </div>
-      <input type="file" id="IN-cam-shoot" accept="image/*" capture="environment" style="display:none">
-      <input type="file" id="IN-cam-gallery" accept="image/*" style="display:none">
-
-      <div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">
-        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
-        <span style="font-size:11px;color:var(--tx2);font-weight:500">またはテキストを貼り付け</span>
-        <div style="flex:1;height:1px;background:rgba(255,255,255,.08)"></div>
-      </div>
-
-      <textarea class="inp ta" id="IN-ai-text" style="height:120px" placeholder="テキストを貼り付けてください。AIが重要単語・熟語を自動抽出・翻訳します。
-
-例 (独): Das Haus ist sehr schön und die Schule liegt in der Nähe...
-例 (英): The enigmatic professor was known for his perspicacious observations..."></textarea>
-      <div class="hint">✨ AIが重要単語・熟語を抽出し日本語訳を付与します。APIキーなしでもオフライン抽出が使えます。</div>
-      <button class="btn-primary" id="B-ai-extract">✨ AI でテキストから抽出</button>
-    </div>
-
-
 
     <!-- PREVIEW -->
     <div id="PRV" style="display: none; margin-top: 16px;">
@@ -986,18 +905,6 @@ schön,美しい"></textarea>
         </div>
         <button class="btn-sec" id="B-theme-reset" style="margin-top:0">↩️ 既定（ミッドナイト）に戻す</button>
         <span style="font-size:11px;color:var(--tx2);line-height:1.5">背景色・文字色・訳語の文字色をそれぞれ選べます。訳語の文字色を「自動」にすると、背景の明るさに合わせて読みやすい色に自動調整します。カードの色や補助文字色も背景に合わせて自動調整されます。</span>
-      </div>
-    </div>
-    <div class="set-sec">AI 設定</div>
-    <div class="set-group">
-      <div class="set-row" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
-        <span class="set-lbl">🔑 Anthropic APIキー</span>
-        <input type="password" class="inp" id="IN-apikey" placeholder="sk-ant-..." style="margin-bottom:0;font-size:13px;padding:10px 12px">
-        <button class="btn-primary" id="B-save-key" style="padding:10px;font-size:13px">💾 APIキーを保存</button>
-        <div id="KEY-status" style="font-size:11px;text-align:center;padding:2px 0"></div>
-      </div>
-      <div class="set-row" style="cursor:default">
-        <span style="font-size:11px;color:var(--tx2);line-height:1.5">APIキーを入力して「保存」を押すとAI翻訳・単語抽出が使えます。キーはデバイス内にのみ保存されます。</span>
       </div>
     </div>
     <div class="set-sec">学習設定</div>
@@ -1236,6 +1143,7 @@ var IDB=null;
           /* IndexedDBの方が新しければ（タブを閉じた後でも）上書き */
           if(idbTime>curTime){
             G=idbData;
+            if(G&&G.cfg){delete G.cfg.key;delete G.cfg.github;} /* 🔒 旧APIキー等を消去 */
             /* embedded-dataも更新 */
             try{var ed=document.getElementById('embedded-data');if(ed)ed.textContent=JSON.stringify(G);}catch(e){}
             /* 画面を再描画 */
@@ -1285,12 +1193,6 @@ var LANGS={
 };
 
 /* ── 📜 古文用の共通定義 ── */
-var KOBUN_RULE='見出し語(word)は歴史的仮名遣いのひらがなで、活用語は必ず終止形に直して記載してください（例: あはれなり、をかし、ののしる、いと）。本文が漢字表記でも見出し語はひらがなにしてください。現代語と同じ意味で使われる平易な語や、助詞・助動詞は除いてください。meaningは大学入試で問われる現代語訳を簡潔に、意味が複数ある場合は「①…②…」の形式で記載してください。';
-var KOBUN_TYPECOND={
-  words:'古語の単語のみ（連語・慣用表現は含めない）',
-  phrases:'連語・慣用表現・呼応の副詞（例: え〜ず、な〜そ、さるべき、いかがはせむ）のみ',
-  both:'古語の単語と、連語・慣用表現・呼応の副詞の両方'
-};
 /* 歴史的仮名遣い → 読み上げ用の現代の発音（表示は変えず、音声合成にだけ使う） */
 var KB_A={'か':'こ','さ':'そ','た':'と','な':'の','は':'ほ','ま':'も','や':'よ','ら':'ろ','わ':'お','あ':'お','が':'ご','ざ':'ぞ','だ':'ど','ば':'ぼ','ぱ':'ぽ'};
 var KB_I={'き':'きゅ','し':'しゅ','ち':'ちゅ','に':'にゅ','ひ':'ひゅ','み':'みゅ','り':'りゅ','ぎ':'ぎゅ','じ':'じゅ','び':'びゅ','い':'ゆ'};
@@ -1325,7 +1227,7 @@ function kobunReading(s){
 /* defフィールドの呼び名（古文は「用例・品詞」、それ以外は従来どおり「英語定義」） */
 function defLabel(lang){return lang==='kobun'?'用例・品詞':'英語定義';}
 
-function mkDB(){return{words:[],lists:[],folders:[],logs:[],cfg:{size:20,random:true,rev:false,speak:true,autonext:false,autonextSec:1.5,flashSec:2,flashAuto:false,spkMode:'both',duckVol:15,key:'',requeueMax:1,ebbing:true,ebbingMax:5,homeLangFilter:'en',listPlayMode:'foreign',listPlaySec:2,listPlayRepeat:false,themeBg:'#0a0a0f',themeTx:'#f0f0f8',themeAcc:'auto',dictUrls:{en:'https://ejje.weblio.jp/content/{word}',de:'https://www.duden.de/rechtschreibung/{word}',fr:'https://fjjf.weblio.jp/content/{word}',es:'',it:'',kobun:'https://kobun.weblio.jp/content/{word}'}},stats:{streak:0,lastDay:''}};}
+function mkDB(){return{words:[],lists:[],folders:[],logs:[],cfg:{size:20,random:true,rev:false,speak:true,autonext:false,autonextSec:1.5,flashSec:2,flashAuto:false,spkMode:'both',duckVol:15,requeueMax:1,ebbing:true,ebbingMax:5,homeLangFilter:'en',listPlayMode:'foreign',listPlaySec:2,listPlayRepeat:false,themeBg:'#0a0a0f',themeTx:'#f0f0f8',themeAcc:'auto',dictUrls:{en:'https://ejje.weblio.jp/content/{word}',de:'https://www.duden.de/rechtschreibung/{word}',fr:'https://fjjf.weblio.jp/content/{word}',es:'',it:'',kobun:'https://kobun.weblio.jp/content/{word}'}},stats:{streak:0,lastDay:''}};}
 var G=sGet()||mkDB();
 /* 起動時にlocalStorageとembedded-dataを同期 */
 (function(){try{sSet(G);}catch(e){}})();
@@ -1342,6 +1244,9 @@ if(G.cfg.themeAcc===undefined) G.cfg.themeAcc='auto';
 /* 予習フェーズの自動再生・自動クイズ移行は既定ON（手動でOFFにも切替可） */
 if(G.cfg.flashAuto===undefined) G.cfg.flashAuto=true;
 if(G.cfg.autoQuiz===undefined) G.cfg.autoQuiz=true;
+/* 🔒 APIキー機能は削除済み。過去に保存されたキーやトークンが残っていれば消去（次回保存時に反映） */
+if(G.cfg.key!==undefined) delete G.cfg.key;
+if(G.cfg.github!==undefined) delete G.cfg.github;
 if(!G.cfg.dictUrls) G.cfg.dictUrls={en:'https://ejje.weblio.jp/content/{word}',de:'https://www.duden.de/rechtschreibung/{word}',fr:'https://fjjf.weblio.jp/content/{word}',es:'',it:''};
 if(!G.cfg.dictUrls.en) G.cfg.dictUrls.en='https://ejje.weblio.jp/content/{word}';
 if(!G.cfg.dictUrls.de) G.cfg.dictUrls.de='https://www.duden.de/rechtschreibung/{word}';
@@ -2483,27 +2388,21 @@ function deleteList(lid){
 }
 
 /* ADD */
-var addMode='paste', prevWords=[], selLang='en', selLevel='all', selType='words', selMeanLang='ja';
+var addMode='paste', prevWords=[], selLang='en';
 
 function segSwitch(mode){
   addMode=mode;
-  ['paste','file','ai'].forEach(function(m){el('TP-'+m).style.display=m===mode?'block':'none';el('SG-'+m).classList.toggle('on',m===mode);});
+  ['paste','file'].forEach(function(m){el('TP-'+m).style.display=m===mode?'block':'none';el('SG-'+m).classList.toggle('on',m===mode);});
   prvHide();
 }
 
 function setLang(lang){
   selLang=lang;
   document.querySelectorAll('.lang-sel-btn').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-lang')===lang);});
-  updateLevelHint();
   /* プレースホルダー更新 */
   var ph={en:'例:\nabandon\nabsolute,絶対的な',de:'例:\nHaus\nSchule,学校\narbeiten\nschön,美しい',fr:'例:\nmaison\nécole,学校\ntravail,仕事',es:'例:\ncasa\nescuela,学校\ntrabajo,仕事',it:'例:\ncasa\nscuola,学校\nlavoro,仕事',kobun:'例:\nあはれなり\nをかし,趣がある\nいと,たいそう\nののしる,大声で騒ぐ'};
   var ta=el('IN-paste-text');if(ta)ta.placeholder=ph[lang]||ph.en;
-  /* 古文では「意味の言語」ボタンの表記を切り替える */
-  var _mlt=el('ML-tl'),_mlb=el('ML-both'),_mlj=el('ML-ja');
-  if(_mlj)_mlj.innerHTML=lang==='kobun'?'🇯🇵<br>現代語訳':'🇯🇵<br>日本語';
-  if(_mlt)_mlt.innerHTML=lang==='kobun'?'📜<br>辞書風':'🌐<br>対象言語';
-  if(_mlb)_mlb.innerHTML=lang==='kobun'?'🔀<br>訳＋品詞':'🔀<br>両方';
-  if(typeof setMeanLang==='function')setMeanLang(selMeanLang);
+
 }
 
 /* JSON貼り付けモード用セクション */
@@ -2524,7 +2423,7 @@ function pasteDetectJson(){
     if(isJson){
       hintEl.textContent='📗 JSON を認識しました。リスト名は JSON 内の book_title / title から自動設定されます。';
     } else {
-      hintEl.textContent='テキスト形式（1行1単語 / 「単語,訳」）または JSON テキストをそのまま貼り付けられます。訳なしの単語はAPIキー設定でAI自動翻訳できます。';
+      hintEl.textContent='テキスト形式（1行1単語 / 「単語,訳」）または JSON テキストをそのまま貼り付けられます。訳なしの単語もそのまま登録でき、あとから編集で訳を追加できます。';
     }
   }
 }
@@ -2595,7 +2494,7 @@ function parsePaste(){
 
       if(jwords.length){
         toast('📗 JSON形式を認識（'+jwords.length+'語）');
-        needTranslate(jwords)?doTranslate(jwords,selLang):prvShow(jwords);
+        prvShow(jwords);
         return;
       } else {
         toast('⚠️ JSONを認識しましたが単語が見つかりません');return;
@@ -2616,48 +2515,28 @@ function parsePaste(){
     if(w)words.push(df?{word:w,meaning:m,def:df}:{word:w,meaning:m});
   });
   if(!words.length){toast('単語が見つかりません');return;}
-  needTranslate(words)?doTranslate(words,selLang):prvShow(words);
+  prvShow(words);
 }
 
-function needTranslate(words){return G.cfg.key&&words.some(function(w){return !w.meaning;});}
-
 /* ---- FILE MODE ---- */
-var fileMode='vocab'; /* vocab | extract */
-var fileSelLevel='all', fileSelType='words';
+var fileMode='vocab'; /* vocab | json */
 
 function setFileMode(mode){
   fileMode=mode;
   document.querySelectorAll('[data-fmode]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-fmode')===mode);});
-  var isExtract=(mode==='extract');
   var isJson=(mode==='json');
-  el('FILE-ai-opts').style.display=isExtract?'block':'none';
   el('FILE-json-opts').style.display=isJson?'block':'none';
   if(isJson){
     el('UP-ic').textContent='📗';
     el('UP-sub').textContent='JSON ファイル (.json)';
     el('UP-hint').textContent='book_title / content / vocabulary / phrases などを自動認識します';
     el('IN-file').accept='.json';
-  } else if(isExtract){
-    el('UP-ic').textContent='📄';
-    el('UP-sub').textContent='Word (.docx) / PDF / TXT / CSV';
-    el('UP-hint').textContent='✨ AIがファイルの内容から単語・熟語を自動抽出し日本語訳を付与します';
-    el('IN-file').accept='.txt,.csv,.docx,.pdf';
   } else {
     el('UP-ic').textContent='📁';
     el('UP-sub').textContent='CSV / Excel (.xlsx)';
     el('UP-hint').textContent='CSV: 1列目=単語、2列目=日本語訳（任意）';
     el('IN-file').accept='.csv,.xlsx,.xls,.txt';
   }
-}
-
-function setFileLevel(level){
-  fileSelLevel=level;
-  document.querySelectorAll('[data-level][id^="FLV-"]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-level')===level);});
-}
-
-function setFileType(type){
-  fileSelType=type;
-  document.querySelectorAll('[data-type][id^="FTY-"]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-type')===type);});
 }
 
 function handleFile(evt){
@@ -2673,130 +2552,12 @@ function handleFile(evt){
     return;
   }
 
-  if(fileMode==='extract'){
-    /* AI抽出モード: テキストを取り出してAIへ */
-    if(ext==='txt'||ext==='csv'){
-      var fr=new FileReader();
-      fr.onload=function(e){fileAiExtract(e.target.result, f.name);};
-      fr.readAsText(f,'UTF-8');
-    } else if(ext==='docx'){
-      extractDocx(f);
-    } else if(ext==='pdf'){
-      extractPdf(f);
-    } else {
-      toast('AI抽出対応: TXT / CSV / Word(.docx) / PDF');
-    }
-  } else {
+  {
     /* 単語リストモード（従来通り） */
     if(ext==='csv'||ext==='txt'){var fr=new FileReader();fr.onload=function(e){csvParse(e.target.result,f.name);};fr.readAsText(f,'UTF-8');}
     else if(ext==='xlsx'||ext==='xls'){xlsxRead(f);}
     else toast('対応形式: CSV, TXT, XLSX');
   }
-}
-
-function extractDocx(file){
-  loading('Wordファイルを読み込み中...');
-  function doExtract(){
-    var fr=new FileReader();
-    fr.onload=function(e){
-      try{
-        mammoth.extractRawText({arrayBuffer:e.target.result}).then(function(result){
-          loaded();
-          if(!result.value||result.value.trim().length<10){toast('テキストが取り出せませんでした');return;}
-          fileAiExtract(result.value, file.name);
-        }).catch(function(){loaded();toast('Wordファイルの読み込みに失敗しました');});
-      }catch(e){loaded();toast('Wordファイルの読み込みに失敗しました');}
-    };
-    fr.readAsArrayBuffer(file);
-  }
-  if(typeof mammoth!=='undefined'){loaded();doExtract();return;}
-  var s=document.createElement('script');
-  s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
-  s.onload=function(){loaded();doExtract();};
-  s.onerror=function(){loaded();toast('Wordライブラリの読み込みに失敗しました');};
-  document.head.appendChild(s);
-}
-
-function extractPdf(file){
-  loading('PDFを読み込み中...');
-  function doExtract(){
-    var fr=new FileReader();
-    fr.onload=function(e){
-      var typedArray=new Uint8Array(e.target.result);
-      pdfjsLib.getDocument({data:typedArray}).promise.then(function(pdf){
-        var totalPages=pdf.numPages, texts=[], done=0;
-        for(var i=1;i<=totalPages;i++){
-          (function(pageNum){
-            pdf.getPage(pageNum).then(function(page){
-              page.getTextContent().then(function(tc){
-                texts[pageNum-1]=tc.items.map(function(s){return s.str;}).join(' ');
-                done++;
-                if(done===totalPages){
-                  loaded();
-                  var fullText=texts.join('\n');
-                  if(!fullText.trim()){toast('PDFからテキストが取り出せませんでした（画像PDFは非対応）');return;}
-                  fileAiExtract(fullText, file.name);
-                }
-              });
-            });
-          })(i);
-        }
-      }).catch(function(){loaded();toast('PDFの読み込みに失敗しました');});
-    };
-    fr.readAsArrayBuffer(file);
-  }
-  if(typeof pdfjsLib!=='undefined'){loaded();doExtract();return;}
-  var s=document.createElement('script');
-  s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-  s.onload=function(){
-    pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    loaded();doExtract();
-  };
-  s.onerror=function(){loaded();toast('PDFライブラリの読み込みに失敗しました');};
-  document.head.appendChild(s);
-}
-
-function fileAiExtract(text, fname){
-  var savedLevel=selLevel, savedType=selType;
-  selLevel=fileSelLevel; selType=fileSelType;
-  if(!G.cfg.key){toast('AIでの抽出にはAPIキーが必要です（設定画面で入力）');selLevel=savedLevel;selType=savedType;return;}
-  var ln=langName(selLang);
-  var def=getLevelDef(selLang,fileSelLevel);
-  var typeCond={words:'単語のみ（2語以上の熟語・イディオムは含めない）',phrases:'熟語・イディオム・慣用句のみ（2語以上のフレーズ）',both:'単語と熟語・イディオム・慣用句の両方'};
-  var articleRule={en:'',de:'名詞には必ず定冠詞を付けてください（例: der Mann, die Frau, das Kind）。動詞は不定詞形、形容詞は原形で記載してください。',fr:'名詞には必ず定冠詞を付けてください（例: le livre, la maison）。動詞は不定詞形、形容詞は男性単数形で記載してください。',es:'名詞には必ず定冠詞を付けてください（例: el libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。',it:'名詞には必ず定冠詞を付けてください（例: il libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。',kobun:KOBUN_RULE};
-  var articleInstr=articleRule[selLang]||'';
-  if(selLang==='kobun')typeCond=KOBUN_TYPECOND;
-  function makePrompt(chunk){
-    var meanPart=buildMeaningPromptPart(ln, selMeanLang);
-    return '以下の'+ln+'テキストから、「'+def.cond+'」に該当する'+typeCond[fileSelType]+'をできるだけ多く抽出し、'+meanPart+'\n'+
-      (articleInstr?articleInstr+'\n':'')+
-      '必ずすべての項目にmeaningを記入してください。訳がわからない場合でも推測して記入してください。\n'+
-      '以下のJSON形式のみで返してください（前後に説明文や```は不要）:\n'+
-      '{"words":[{"word":"(単語)","meaning":"(意味)"}]}\n\n'+
-      'テキスト:\n'+chunk;
-  }
-  var chunks=splitChunks(text, 80000);
-  loading('AIが抽出中... (1/'+chunks.length+'パート)');
-  apiCallChunked(chunks, makePrompt, 'claude-haiku-4-5-20251001',
-    function(allWords){
-      loaded();selLevel=savedLevel;selType=savedType;
-      var seen={};
-      var words=allWords.filter(function(w){
-        var k=w.word.toLowerCase().trim();
-        if(seen[k])return false; seen[k]=true; return true;
-      });
-      if(!words.length){toast('❌ 単語が抽出できませんでした');return;}
-      toast('✅ '+words.length+'語を抽出しました'+(chunks.length>1?' ('+chunks.length+'パート処理)':''));
-      prvShow(words);
-      var ni2=el('IN-file-name');var ni3=el('IN-ai-name');
-      if(ni2&&ni2.value&&ni3&&!ni3.value)ni3.value=ni2.value;
-    },
-    function(e){
-      loaded();selLevel=savedLevel;selType=savedType;
-      var msg=e.message||'';
-      toast(msg.indexOf('401')>=0?'❌ APIキーが無効です':'❌ エラー: '+msg.slice(0,50));
-    }
-  );
 }
 
 function csvParse(txt,fname){
@@ -2810,7 +2571,7 @@ function csvParse(txt,fname){
   });
   var ni=el('IN-file-name');if(ni&&!ni.value)ni.value=fname.replace(/\.[^.]+$/,'');
   if(!words.length){toast('単語が見つかりません');return;}
-  needTranslate(words)?doTranslate(words,selLang):prvShow(words);
+  prvShow(words);
 }
 
 function xlsxRead(file){
@@ -2826,7 +2587,7 @@ function xlsxRead(file){
         rows.forEach(function(r){var w=(r[0]||'').toString().trim(),m=(r[1]||'').toString().trim();if(w)words.push({word:w,meaning:m});});
         var ni=el('IN-file-name');if(ni&&!ni.value)ni.value=file.name.replace(/\.[^.]+$/,'');
         if(!words.length){toast('単語が見つかりません');return;}
-        needTranslate(words)?doTranslate(words,selLang):prvShow(words);
+        prvShow(words);
       }catch(e){toast('Excelの読み込みに失敗しました');}
     };
     fr.readAsArrayBuffer(file);
@@ -2898,475 +2659,7 @@ function jsonImport(text, fname){
   }
 
   toast('✅ '+words.length+'語を読み込みました');
-  needTranslate(words)?doTranslate(words,selLang):prvShow(words);
-}
-
-/* 言語×レベル別の検定基準 */
-var LEVEL_DEF={
-  en:{
-    all:  {hint:'レベル区別なし — 学習価値のある単語を幅広く抽出',cond:'基本的すぎる単語（冠詞・前置詞・be動詞など）は除き、学習価値のある単語'},
-    beginner:{hint:'初級 — 英検5級・4級・3級レベルの単語',cond:'英検3〜5級レベル（中学英語相当）の基本的な単語。日常生活の簡単な表現'},
-    intermediate:{hint:'中級 — 英検準2級・2級レベルの単語',cond:'英検準2級・2級レベル（高校英語相当）の単語。日常・社会的な話題に使われる語彙'},
-    advanced:{hint:'上級 — 英検準1級・1級以上レベルの単語',cond:'英検準1級・1級以上レベルの高度な単語。学術・専門・難解な語彙'}
-  },
-  de:{
-    all:  {hint:'レベル区別なし — 学習価値のある単語を幅広く抽出',cond:'基本的すぎる単語（冠詞・前置詞・助動詞など）は除き、学習価値のある単語'},
-    beginner:{hint:'初級 — 独検5級・4級・3級レベルの単語',cond:'独検3〜5級レベルの基本的なドイツ語単語。日常生活の簡単な表現'},
-    intermediate:{hint:'中級 — 独検2級レベルの単語',cond:'独検2級レベルのドイツ語単語。社会・文化・仕事などのテーマに使われる語彙'},
-    advanced:{hint:'上級 — 独検1級以上レベルの単語',cond:'独検1級以上レベルの高度なドイツ語単語。学術・専門・文学的な語彙'}
-  },
-  fr:{
-    all:  {hint:'レベル区別なし — 学習価値のある単語を幅広く抽出',cond:'基本的すぎる単語（冠詞・前置詞・être/avoirなど）は除き、学習価値のある単語'},
-    beginner:{hint:'初級 — 仏検5級・4級・3級レベルの単語',cond:'仏検3〜5級レベルの基本的なフランス語単語。日常生活の簡単な表現'},
-    intermediate:{hint:'中級 — 仏検2級レベルの単語',cond:'仏検2級レベルのフランス語単語。社会・文化・時事などに使われる語彙'},
-    advanced:{hint:'上級 — 仏検1級以上レベルの単語',cond:'仏検1級以上レベルの高度なフランス語単語。学術・文学・専門的な語彙'}
-  },
-  es:{
-    all:  {hint:'レベル区別なし — 学習価値のある単語を幅広く抽出',cond:'基本的すぎる単語（冠詞・前置詞・ser/estarなど）は除き、学習価値のある単語'},
-    beginner:{hint:'初級 — スペイン語検定6級・5級・4級レベルの単語',cond:'スペイン語検定4〜6級レベルの基本的な単語。日常生活の簡単な表現'},
-    intermediate:{hint:'中級 — スペイン語検定3級・2級レベルの単語',cond:'スペイン語検定2〜3級レベルの単語。社会・文化・仕事などに使われる語彙'},
-    advanced:{hint:'上級 — スペイン語検定1級以上レベルの単語',cond:'スペイン語検定1級以上レベルの高度な単語。学術・専門・文学的な語彙'}
-  },
-  it:{
-    all:  {hint:'レベル区別なし — 学習価値のある単語を幅広く抽出',cond:'基本的すぎる単語（冠詞・前置詞・essere/avereなど）は除き、学習価値のある単語'},
-    beginner:{hint:'初級 — イタリア語検定（伊検）5級・4級・3級レベルの単語',cond:'イタリア語検定3〜5級レベルの基本的な単語。日常生活の簡単な表現'},
-    intermediate:{hint:'中級 — イタリア語検定2級レベルの単語',cond:'イタリア語検定2級レベルの単語。社会・文化・仕事などに使われる語彙'},
-    advanced:{hint:'上級 — イタリア語検定1級以上レベルの単語',cond:'イタリア語検定1級以上レベルの高度な単語。学術・専門・文学的な語彙'}
-  },
-  kobun:{
-    all:  {hint:'レベル区別なし — 入試で問われる重要古語を幅広く抽出',cond:'現代語と同じ意味の平易な語や助詞・助動詞を除いた、学習価値のある重要古語'},
-    beginner:{hint:'初級 — 古文単語帳の最重要語（共通テストの基礎）',cond:'古文単語帳で最初に覚える最重要語（例: あはれなり、をかし、いと、ののしる）。共通テストの基礎レベル'},
-    intermediate:{hint:'中級 — 共通テスト・中堅大学入試レベル',cond:'共通テスト・中堅大学で問われる重要古語。現代語と意味が異なる語（古今異義語）や多義語'},
-    advanced:{hint:'上級 — 難関大学入試レベル',cond:'難関国公立・難関私大で問われる難度の高い古語。和歌・物語特有の語、敬語動詞、心情語など'}
-  }
-};
-
-function getLevelDef(lang,level){
-  var ld=LEVEL_DEF[lang]||LEVEL_DEF.en;
-  return ld[level]||ld.all;
-}
-
-function setLevel(level){
-  selLevel=level;
-  document.querySelectorAll('.opt-btn[data-level]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-level')===level);});
-  updateLevelHint();
-}
-
-function updateLevelHint(){
-  var h=el('LV-hint');
-  if(!h)return;
-  var def=getLevelDef(selLang,selLevel);
-  h.textContent=def.hint;
-}
-
-function setType(type){
-  selType=type;
-  document.querySelectorAll('.opt-btn[data-type]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-type')===type);});
-}
-
-/* 意味の言語セレクター */
-var MLANG_HINTS_KOBUN={
-  ja: '入試で問われる現代語訳を登録します（複数の意味は①②…）',
-  tl: '品詞つきの古語辞典風の説明（例:【形動ナリ】①しみじみと趣深い）で登録します',
-  both: '現代語訳と品詞を「／」でつなげて両方登録します'
-};
-var MLANG_HINTS={
-  ja: '意味を日本語で登録します',
-  tl: '対象言語（英語なら英語、ドイツ語ならドイツ語）で意味・定義を登録します',
-  both: '日本語の意味と対象言語の定義を「／」でつなげて両方登録します'
-};
-function setMeanLang(ml){
-  selMeanLang=ml;
-  document.querySelectorAll('#MLANG-btns .opt-btn[data-mlang]').forEach(function(b){
-    b.classList.toggle('on', b.getAttribute('data-mlang')===ml);
-  });
-  var h=el('MLANG-hint');
-  if(h) h.textContent=(selLang==='kobun'?MLANG_HINTS_KOBUN:MLANG_HINTS)[ml]||'';
-}
-
-/* 意味プロンプトを選択に応じて組み立てる共通ヘルパー */
-function buildMeaningPromptPart(ln, mlang){
-  if(selLang==='kobun'){
-    if(mlang==='tl'){
-      return 'それぞれ古語辞典のように「【品詞】①意味 ②意味」の形式で、日本語の説明を付けてください。\n'+
-        'JSON例: {"words":[{"word":"あはれなり","meaning":"【形容動詞・ナリ】①しみじみと趣深い ②気の毒だ"}]}';
-    } else if(mlang==='both'){
-      return '意味フィールドに「現代語訳 ／ 品詞」の形式で両方を記載してください。\n'+
-        'JSON例: {"words":[{"word":"あはれなり","meaning":"①しみじみと趣深い ②気の毒だ ／ 形容動詞・ナリ活用"}]}';
-    }
-    return 'それぞれ大学入試で問われる現代語訳を付けてください（複数の意味は「①…②…」）。\n'+
-      'JSON例: {"words":[{"word":"あはれなり","meaning":"①しみじみと趣深い ②気の毒だ"}]}';
-  }
-  if(mlang==='ja'){
-    return 'それぞれ日本語訳をつけてください。\n'+
-      'JSON例: {"words":[{"word":"abandon","meaning":"捨てる、放棄する"}]}';
-  } else if(mlang==='tl'){
-    return 'それぞれ'+ln+'での意味・定義を簡潔に付けてください（日本語は使わないでください）。\n'+
-      'JSON例: {"words":[{"word":"abandon","meaning":"to leave someone or something permanently"}]}';
-  } else { /* both */
-    return '意味フィールドに「'+ln+'での定義 ／ 日本語訳」の形式で両方を記載してください。\n'+
-      'JSON例: {"words":[{"word":"abandon","meaning":"to leave permanently ／ 捨てる、放棄する"}]}';
-  }
-}
-
-function aiExtract(){
-  var txt=el('IN-ai-text').value.trim();
-  if(!txt||txt.length<20){toast('もう少し長いテキストを入力してください');return;}
-  /* APIキーをその場で入力欄から直接取得（保存済みでなくても動く） */
-  var keyFromInput=(el('IN-apikey')||{}).value||'';
-  if(keyFromInput&&!G.cfg.key){G.cfg.key=keyFromInput;save();}
-  if(G.cfg.key){
-    aiExtractAPI(txt);
-  } else {
-    if(confirm('APIキーが設定されていません。\n設定画面でAPIキーを入力するとAI翻訳が使えます。\nオフライン抽出（訳なし）で続けますか？')){
-      offlineExtract(txt);
-    }
-  }
-}
-
-function apiCall(body,ok,ng){
-  var xhr=new XMLHttpRequest();
-  xhr.open('POST','https://api.anthropic.com/v1/messages',true);
-  xhr.setRequestHeader('Content-Type','application/json');
-  xhr.setRequestHeader('x-api-key',G.cfg.key);
-  xhr.setRequestHeader('anthropic-version','2023-06-01');
-  xhr.setRequestHeader('anthropic-dangerous-direct-browser-access','true');
-  xhr.onload=function(){try{var d=JSON.parse(xhr.responseText);xhr.status===200?ok(d):ng(new Error((d.error&&d.error.message)||'APIエラー '+xhr.status));}catch(e){ng(e);}};
-  xhr.onerror=function(){ng(new Error('通信エラー'));};
-  xhr.send(JSON.stringify(body));
-}
-
-/* テキストを指定文字数でチャンク分割（単語区切りを尊重） */
-function splitChunks(text, chunkSize){
-  var chunks=[];
-  var pos=0;
-  while(pos<text.length){
-    var end=Math.min(pos+chunkSize, text.length);
-    /* 行末か空白で切る */
-    if(end<text.length){
-      var nl=text.lastIndexOf('\n',end);
-      var sp=text.lastIndexOf(' ',end);
-      var cut=nl>pos+chunkSize/2?nl:sp>pos+chunkSize/2?sp:end;
-      end=cut>pos?cut:end;
-    }
-    chunks.push(text.slice(pos,end).trim());
-    pos=end;
-  }
-  return chunks.filter(function(c){return c.length>0;});
-}
-
-/* 複数チャンクを順次APIに送り、結果をマージして返す */
-function apiCallChunked(chunks, makePrompt, model, okAll, ngAll){
-  var allWords=[];
-  var idx=0;
-  function next(){
-    if(idx>=chunks.length){okAll(allWords);return;}
-    var chunk=chunks[idx];
-    idx++;
-    loading('AIが抽出中... ('+idx+'/'+chunks.length+'パート)');
-    var body={
-      model:model,
-      max_tokens:16000,
-      messages:[{role:'user',content:makePrompt(chunk)}]
-    };
-    apiCall(body,function(d){
-      try{
-        var raw=(d.content[0].text||'').replace(/```json|```/g,'').trim();
-        var m=raw.match(/\{[\s\S]*\}/);
-        if(m){
-          var words=(JSON.parse(m[0]).words||[]).filter(function(w){return w.word&&w.word.trim();});
-          allWords=allWords.concat(words);
-        }
-      }catch(e){/* パートのパース失敗は無視して続行 */}
-      next();
-    },function(e){ngAll(e);});
-  }
-  next();
-}
-
-function langName(lang){return LANGS[lang]?LANGS[lang].name:'英語';}
-
-function aiExtractAPI(txt){
-  /* ── スラッシュ区切りの単語リスト形式を検出 ── */
-  var slashCount=(txt.match(/ \/ /g)||[]).length;
-  var lineCount=txt.split('\n').filter(function(l){return l.trim();}).length;
-  var isWordList= selLang!=='kobun' && slashCount > 20 && slashCount > lineCount * 0.5;
-
-  if(isWordList){
-    loading('単語リストを解析中...');
-    var rawWords=[];
-    txt.split('\n').forEach(function(line){
-      line=line.trim();
-      if(!line) return;
-      if(/[\u3000-\u9fff]/.test(line)) return;
-      line.split('/').forEach(function(w){
-        w=w.trim().replace(/^\(|\)$/g,'');
-        if(w && w.length>0 && w.length<60) rawWords.push(w);
-      });
-    });
-    var seen={};
-    var words=rawWords.filter(function(w){
-      var k=w.toLowerCase();
-      if(seen[k])return false; seen[k]=true; return true;
-    }).map(function(w){return{word:w, meaning:''};});
-
-    if(!words.length){loaded();toast('\u274c 単語が見つかりません');return;}
-    loaded();
-
-    if(G.cfg.key){
-      translateInChunks(words, selLang, function(translated){
-        var ni=el('IN-ai-name');
-        if(ni&&!ni.value)ni.value=(LANGS[selLang]?LANGS[selLang].name:'')+'_AI抽出';
-        toast('\u2705 '+translated.length+'語を読み込みました');
-        prvShow(translated);
-      });
-    } else {
-      var ni=el('IN-ai-name');
-      if(ni&&!ni.value)ni.value=(LANGS[selLang]?LANGS[selLang].name:'')+'_抽出';
-      toast('\u2705 '+words.length+'語を読み込みました（翻訳はAPIキーが必要）');
-      prvShow(words);
-    }
-    return;
-  }
-
-  /* ── 通常テキストからのAI抽出 ── */
-  var ln=langName(selLang);
-  var def=getLevelDef(selLang,selLevel);
-  var levelLabel={all:'',beginner:'初級_',intermediate:'中級_',advanced:'上級_'};
-  var typeLabel={words:'単語_',phrases:'熟語_',both:'単語熟語_'};
-  var typeCond={
-    words:'単語のみ（2語以上の熟語・イディオムは含めない）',
-    phrases:'熟語・イディオム・慣用句のみ（2語以上のフレーズ）',
-    both:'単語と熟語・イディオム・慣用句の両方'
-  };
-  var articleRule={
-    en:'',
-    de:'名詞には必ず定冠詞を付けてください（例: der Mann, die Frau, das Kind）。動詞は不定詞形（例: gehen, haben）、形容詞は原形で記載してください。',
-    fr:"名詞には必ず定冠詞を付けてください（例: le livre, la maison, l\'école）。動詞は不定詞形（例: aller, avoir）、形容詞は男性単数形で記載してください。",
-    es:'名詞には必ず定冠詞を付けてください（例: el libro, la casa）。動詞は不定詞形（例: ir, tener）、形容詞は男性単数形で記載してください。',
-    it:'名詞には必ず定冠詞を付けてください（例: il libro, la casa, lo studente）。動詞は不定詞形（例: andare, avere）、形容詞は男性単数形で記載してください。',
-    kobun:KOBUN_RULE
-  };
-  var articleInstr=articleRule[selLang]||'';
-  if(selLang==='kobun')typeCond=KOBUN_TYPECOND;
-  var ni=el('IN-ai-name');
-  if(ni&&!ni.value)ni.value=(LANGS[selLang]?LANGS[selLang].name:'')+'_'+(levelLabel[selLevel]||'')+(typeLabel[selType]||'')+'AI抽出';
-
-  function makePrompt(chunk){
-    var meanPart=buildMeaningPromptPart(ln, selMeanLang);
-    return '以下の'+ln+'テキストから、'+
-      '「'+def.cond+'」に該当する'+typeCond[selType]+'をできるだけ多く抽出し、'+meanPart+'\n'+
-      (articleInstr?articleInstr+'\n':'')+
-      '必ずすべての項目にmeaningを記入してください。訳がわからない場合でも推測して記入してください。\n'+
-      '以下のJSON形式のみで返してください（前後に説明文や```は不要）:\n'+
-      '{"words":[{"word":"(単語)","meaning":"(意味)"}]}\n\n'+
-      'テキスト:\n'+chunk;
-  }
-
-  var chunks=splitChunks(txt, 80000);
-  loading('AIが抽出中... (1/'+chunks.length+'パート)');
-  apiCallChunked(chunks, makePrompt, 'claude-haiku-4-5-20251001',
-    function(allWords){
-      loaded();
-      var seen={};
-      var words=allWords.filter(function(w){
-        var k=w.word.toLowerCase().trim();
-        if(seen[k])return false;
-        seen[k]=true;return true;
-      });
-      if(!words.length){toast('\u274c 単語が抽出できませんでした');return;}
-      toast('\u2705 '+words.length+'語を抽出しました'+(chunks.length>1?' ('+chunks.length+'パート処理)':''));
-      prvShow(words);
-    },
-    function(e){
-      loaded();
-      var msg=e.message||'';
-      if(msg.indexOf('401')>=0||msg.indexOf('authentication')>=0||msg.toLowerCase().indexOf('invalid')>=0){
-        toast('\u274c APIキーが無効です。設定画面で確認してください');
-      } else if(msg.indexOf('\u901a\u4fe1')>=0){
-        toast('\u274c 通信エラー。ネットワークを確認してください');
-      } else {
-        toast('\u274c AIエラー: '+msg.slice(0,60));
-      }
-    }
-  );
-}
-
-/* ── カメラ画像からAI単語抽出 ── */
-function camAiExtract(dataUrl){
-  /* data:image/jpeg;base64,XXX から mediaType と base64 data を分離 */
-  var m=dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if(!m){toast('画像データが不正です');return;}
-  var mediaType=m[1]; /* image/jpeg など */
-  var b64=m[2];
-
-  var ln=langName(selLang);
-  var def=getLevelDef(selLang,selLevel);
-  var typeCond={
-    words:'単語のみ（2語以上の熟語・イディオムは含めない）',
-    phrases:'熟語・イディオム・慣用句のみ（2語以上のフレーズ）',
-    both:'単語と熟語・イディオム・慣用句の両方'
-  };
-  var articleRule={
-    en:'',
-    de:'名詞には必ず定冠詞を付けてください（例: der Mann, die Frau, das Kind）。動詞は不定詞形、形容詞は原形で記載してください。',
-    fr:'名詞には必ず定冠詞を付けてください（例: le livre, la maison）。動詞は不定詞形、形容詞は男性単数形で記載してください。',
-    es:'名詞には必ず定冠詞を付けてください（例: el libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。',
-    it:'名詞には必ず定冠詞を付けてください（例: il libro, la casa）。動詞は不定詞形、形容詞は男性単数形で記載してください。',
-    kobun:KOBUN_RULE
-  };
-  var articleInstr=articleRule[selLang]||'';
-  if(selLang==='kobun')typeCond=KOBUN_TYPECOND;
-
-  var prompt=
-    'この画像に写っている'+ln+'のテキストから、「'+def.cond+'」に該当する'+typeCond[selType]+'をできるだけ多く抽出し、'+buildMeaningPromptPart(ln, selMeanLang)+'\n'+
-    (articleInstr?articleInstr+'\n':'')+
-    '必ずすべての項目にmeaningを記入してください。訳がわからない場合でも推測して記入してください。\n'+
-    '画像にテキストが見つからない場合は {"words":[]} を返してください。\n'+
-    '以下のJSON形式のみで返してください（前後に説明文や```は不要）:\n'+
-    '{"words":[{"word":"(単語)","meaning":"(意味)"}]}';
-
-  loading('📷 画像を解析中...');
-
-  var body={
-    model:'claude-sonnet-4-20250514',
-    max_tokens:4096,
-    messages:[{
-      role:'user',
-      content:[
-        {type:'image',source:{type:'base64',media_type:mediaType,data:b64}},
-        {type:'text',text:prompt}
-      ]
-    }]
-  };
-
-  apiCall(body,function(d){
-    loaded();
-    try{
-      var raw=(d.content[0].text||'').replace(/```json|```/g,'').trim();
-      var match=raw.match(/\{[\s\S]*\}/);
-      if(!match){toast('❌ 抽出結果を解析できませんでした');return;}
-      var words=(JSON.parse(match[0]).words||[]).filter(function(w){return w.word&&w.word.trim();});
-      /* 重複除去 */
-      var seen={};
-      words=words.filter(function(w){
-        var k=w.word.toLowerCase().trim();
-        if(seen[k])return false; seen[k]=true; return true;
-      });
-      if(!words.length){toast('❌ 画像から単語が見つかりませんでした');return;}
-      toast('✅ '+words.length+'語を画像から抽出しました');
-      prvShow(words);
-      /* リスト名が空なら自動設定 */
-      var ni=el('IN-ai-name');
-      if(ni&&!ni.value)ni.value='📷 '+(LANGS[selLang]?LANGS[selLang].name:'')+'_カメラ抽出';
-    }catch(e){
-      toast('❌ 解析エラー: '+e.message);
-    }
-  },function(e){
-    loaded();
-    var msg=e.message||'';
-    toast(msg.indexOf('401')>=0?'❌ APIキーが無効です':'❌ エラー: '+msg.slice(0,50));
-  });
-}
-
-/* 単語リストを150語ずつ分割してAI翻訳 */
-function translateInChunks(words, lang, callback){
-  var ln=langName(lang);
-  var chunkSize=150;
-  var total=words.length;
-  var idx=0;
-  var result=words.slice();
-
-  function nextChunk(){
-    if(idx>=total){callback(result);return;}
-    var chunk=result.slice(idx, idx+chunkSize);
-    var noMeaning=chunk.filter(function(w){return !w.meaning;});
-    if(!noMeaning.length){idx+=chunkSize;nextChunk();return;}
-
-    loading('翻訳中... ('+Math.min(idx+chunkSize,total)+'/'+total+'語)');
-    var wordList=noMeaning.map(function(w){return w.word;}).join(' / ');
-    var meanInstr;
-    if(lang==='kobun'){
-      meanInstr=(selMeanLang==='tl'?'各古語に古語辞典のような「【品詞】①意味 ②意味」形式の日本語の説明を付けてください。\n':
-        selMeanLang==='both'?'各古語に「現代語訳 ／ 品詞」の形式で意味を付けてください。\n':
-        '各古語に大学入試で問われる現代語訳を付けてください（複数の意味は「①…②…」の形式で簡潔に）。\n')+
-        'JSONのみで返してください（```不要）: {"translations":{"あはれなり":"①しみじみと趣深い ②気の毒だ","ののしる":"①大声で騒ぐ ②評判になる"}}';
-    } else if(selMeanLang==='tl'){
-      meanInstr='各単語・熟語の'+ln+'での意味・定義を簡潔に付けてください（日本語は使わないでください）。\n'+
-        'JSONのみで返してください（```不要）: {"translations":{"abandon":"to leave someone or something permanently"}}';
-    } else if(selMeanLang==='both'){
-      meanInstr='各単語・熟語に「'+ln+'での定義 ／ 日本語訳」の形式で意味を付けてください。\n'+
-        'JSONのみで返してください（```不要）: {"translations":{"abandon":"to leave permanently ／ 捨てる"}}';
-    } else {
-      meanInstr='各単語・熟語に日本語訳をつけてください。\n'+
-        'JSONのみで返してください（```不要）: {"translations":{"abandon":"捨てる","be put upon":"こき使われる"}}';
-    }
-    var prompt=
-      '以下の'+ln+'の単語・熟語すべてに意味を付けてください。\n'+
-      meanInstr+'\n'+
-      '必ずすべての項目を含めてください。\n\n'+
-      '単語リスト: '+wordList;
-
-    apiCall({
-      model:'claude-haiku-4-5-20251001',
-      max_tokens:16000,
-      messages:[{role:'user',content:prompt}]
-    },function(d){
-      try{
-        var raw=(d.content[0].text||'').replace(/```json|```/g,'').trim();
-        var m=raw.match(/\{[\s\S]*\}/);
-        if(m){
-          var tr=JSON.parse(m[0]).translations||{};
-          for(var i=idx;i<Math.min(idx+chunkSize,total);i++){
-            var w=result[i];
-            if(!w.meaning){
-              var meaning=tr[w.word]||tr[w.word.toLowerCase()]||'';
-              if(!meaning){
-                var wn=w.word.replace(/\s+/g,' ').trim();
-                Object.keys(tr).forEach(function(k){
-                  if(!meaning&&k.replace(/\s+/g,' ').trim().toLowerCase()===wn.toLowerCase())meaning=tr[k];
-                });
-              }
-              if(meaning)w.meaning=meaning;
-            }
-          }
-        }
-      }catch(e){}
-      idx+=chunkSize;
-      nextChunk();
-    },function(){
-      idx+=chunkSize;
-      nextChunk();
-    });
-  }
-  nextChunk();
-}
-function offlineExtract(txt){
-  if(selLang==='kobun'){toast('古文はオフライン抽出に対応していません。APIキーを設定するとAIで抽出できます');return;}
-  var common={the:1,be:1,is:1,are:1,was:1,were:1,have:1,has:1,had:1,do:1,does:1,did:1,will:1,would:1,shall:1,should:1,may:1,might:1,must:1,can:1,could:1,a:1,an:1,in:1,on:1,at:1,to:1,for:1,of:1,and:1,or:1,but:1,not:1,this:1,that:1,with:1,from:1,by:1,as:1,up:1,out:1,if:1,about:1,who:1,what:1,which:1,all:1,when:1,so:1,no:1,just:1,into:1,over:1,after:1,also:1,than:1,only:1,they:1,their:1,you:1,we:1,he:1,she:1,me:1,my:1,us:1,him:1,it:1,i:1,
-    der:1,die:1,das:1,ein:1,eine:1,und:1,oder:1,aber:1,nicht:1,ist:1,sind:1,war:1,hat:1,haben:1,mit:1,von:1,aus:1,bei:1,nach:1,zum:1,zur:1,dem:1,den:1,des:1,
-    le:1,la:1,les:1,un:1,une:1,des:1,et:1,ou:1,est:1,sont:1,pas:1,que:1,qui:1,dans:1,sur:1,avec:1,par:1,
-    el:1,los:1,las:1,es:1,son:1,una:1,con:1,por:1,para:1,
-    il:1,lo:1,gli:1,del:1,della:1,nella:1,con:1,per:1,una:1,sono:1};
-  var f={},m,re=/\b([\wÄäÖöÜüßàâäéèêëîïôùûüÿçæœÁáÉéÍíÓóÚúÑñÀàÈèÌìÒòÙù]{3,})\b/g;
-  while((m=re.exec(txt))!==null){var w=m[1];if(!common[w.toLowerCase()]&&!common[w])f[w]=(f[w]||0)+1;}
-  var s=Object.keys(f).sort(function(a,b){return f[b]-f[a];}).slice(0,30);
-  toast('オフライン抽出完了（訳なし）APIキーを設定すると訳も付与できます');
-  prvShow(s.map(function(w){return{word:w,meaning:''};}));
-}
-
-function doTranslate(words,lang){
-  var nm=words.filter(function(w){return !w.meaning;});
-  if(!nm.length){prvShow(words);return;}
-  var ln=langName(lang);
-  loading(nm.length+'単語を翻訳中...');
-  apiCall({
-    model:'claude-haiku-4-5-20251001',max_tokens:2048,
-    messages:[{role:'user',content:(lang==='kobun'?'以下の古語に大学入試で問われる現代語訳をつけてください（複数の意味は「①…②…」）。JSONのみで返してください: {"translations":{"あはれなり":"①しみじみと趣深い ②気の毒だ",...}}\n\n単語: ':'以下の'+ln+'の単語に日本語訳をつけてください。JSONのみで返してください: {"translations":{"Haus":"家",...}}\\n\\n単語: ')+nm.map(function(w){return w.word;}).join(', ')}]
-  },function(d){
-    try{var m=d.content[0].text.match(/\{[\s\S]*\}/);if(m){var tr=JSON.parse(m[0]).translations||{};words.forEach(function(w){if(!w.meaning&&tr[w.word])w.meaning=tr[w.word];});}}catch(e){}
-    loaded();prvShow(words);
-  },function(){loaded();prvShow(words);});
+  prvShow(words);
 }
 
 function prvShow(words){
@@ -3384,7 +2677,7 @@ function prvHide(){prevWords=[];el('PRV').style.display='none';el('PRV-list').in
 
 function saveList(){
   if(!prevWords.length)return;
-  var nameMap={paste:'IN-paste-name',file:'IN-file-name',ai:'IN-ai-name'};
+  var nameMap={paste:'IN-paste-name',file:'IN-file-name'};
   var ni=el(nameMap[addMode]||'IN-paste-name');
   var listName=(ni&&ni.value.trim())||((LANGS[selLang]?LANGS[selLang].name:'')+'リスト '+(G.lists.length+1));
   var lst=null;
@@ -3408,83 +2701,9 @@ function saveList(){
   });
   save();prvHide();
   if(ni)ni.value='';
-  var ta=el(addMode==='paste'?'IN-paste-text':addMode==='ai'?'IN-ai-text':'IN-paste-text');if(ta)ta.value='';
+  var ta=el('IN-paste-text');if(ta)ta.value='';
   toast('✅ '+added+'単語を「'+listName+'」に追加しました');
-  /* APIキーがあれば英語定義を非同期で生成してバックグラウンドで保存 */
-  if(G.cfg.key&&newWordObjs.length){
-    var needDef=newWordObjs.filter(function(w){return !w.def;});
-    if(needDef.length) generateDefs(needDef, function(){save();});
-  }
   setTimeout(function(){go('s-home');},500);
-}
-
-/* 英語定義を一括生成してwordオブジェクトのdefフィールドに保存する */
-function generateDefs(words, cb){
-  if(!G.cfg.key||!words||!words.length){if(cb)cb();return;}
-  var langName2=function(lang){
-    var n={en:'English',de:'German',fr:'French',es:'Spanish',it:'Italian'};
-    return n[lang]||'English';
-  };
-  var BATCH=20;
-  var batches=[];
-  for(var i=0;i<words.length;i+=BATCH) batches.push(words.slice(i,i+BATCH));
-
-  function runBatch(idx){
-    if(idx>=batches.length){if(cb)cb();return;}
-    var batch=batches[idx];
-    var sampleLang=langName2(batch[0].lang||'en');
-    var items=batch.map(function(w){return '"'+w.id+'":'+JSON.stringify(w.word);}).join(',');
-    var prompt=(batch[0].lang==='kobun')?
-      'あなたは高校生向け古語辞典の編集者です。以下の各古語について、「【品詞・活用】短い用例（その現代語訳）」の形式で、1行の補足を日本語で書いてください。'+
-      '例: 【形容動詞・ナリ】夕暮れはいとあはれなり。（夕暮れはたいそうしみじみと趣深い。） '+
-      '用例は短い自作の文でかまいません。作品名・出典は書かないでください。'+
-      'JSONのみで返してください: {"id":"補足",...}\n\n{'+items+'}':
-      'You are a monolingual dictionary. For each '+sampleLang+' word/phrase below, '+
-      'write a concise '+sampleLang+' definition (1 sentence, max 12 words). '+
-      'Rules: write only in '+sampleLang+', never translate, define the word using other '+sampleLang+' words, '+
-      'do not repeat the word itself in the definition. '+
-      'Return ONLY valid JSON: {"id":"definition",...}\n\n{'+items+'}';
-    var body={model:'claude-haiku-4-5-20251001',max_tokens:batch[0].lang==='kobun'?2400:1200,
-      messages:[{role:'user',content:prompt}]};
-    var xhr=new XMLHttpRequest();
-    xhr.open('POST','https://api.anthropic.com/v1/messages',true);
-    xhr.setRequestHeader('Content-Type','application/json');
-    xhr.setRequestHeader('x-api-key',G.cfg.key);
-    xhr.setRequestHeader('anthropic-version','2023-06-01');
-    xhr.setRequestHeader('anthropic-dangerous-direct-browser-access','true');
-    xhr.onload=function(){
-      try{
-        var d=JSON.parse(xhr.responseText);
-        if(xhr.status===200&&d.content&&d.content[0]){
-          var raw=d.content[0].text||'';
-          raw=raw.replace(/```json|```/g,'').trim();
-          var obj=JSON.parse(raw);
-          Object.keys(obj).forEach(function(wid){
-            var w=G.words.find(function(x){return x.id===wid;});
-            if(w) w.def=obj[wid];
-          });
-        }
-      }catch(e){}
-      runBatch(idx+1);
-    };
-    xhr.onerror=function(){runBatch(idx+1);};
-    xhr.send(JSON.stringify(body));
-  }
-  runBatch(0);
-}
-
-/* 既存リストに英語定義を一括補完する */
-function bulkGenerateDefs(lid, onDone){
-  if(!G.cfg.key){toast('🔑 APIキーが必要です（設定 → APIキー）');return;}
-  var words=G.words.filter(function(w){return w.lid===lid&&!w.def;});
-  if(!words.length){toast('✅ すべての単語に定義があります');return;}
-  var _dl=defLabel(words[0].lang);
-  toast('🔄 '+_dl+'を生成中... ('+words.length+'語)');
-  generateDefs(words, function(){
-    save();
-    toast('✅ '+words.length+'語の'+_dl+'を生成しました');
-    if(onDone) onDone();
-  });
 }
 
 /* WORD LIST */
@@ -3764,7 +2983,6 @@ function listMenu(lid){
       '<button class="btn-sec" id="LM-phrases-only"'+(pCnt<2?' style="opacity:.4;pointer-events:none"':'')+'>💬 熟語（'+pStudied+'/'+pCnt+'）</button>'+
     '</div>'+
     '<button class="btn-sec" id="LM-list" style="margin-top:0;margin-bottom:8px">📚 単語一覧を見る</button>'+
-    '<button class="btn-sec" id="LM-gen-defs" style="margin-top:0;margin-bottom:8px'+(G.cfg.key?'':';opacity:.4')+'">'+(function(){var nd=G.words.filter(function(w){return w.lid===lid&&!w.def;}).length;return (G.cfg.key?'📖':'📖🔑')+' '+defLabel(lst.lang)+'を補完'+(nd?' (未定義:'+nd+'語)':'（完了済み）');})()+'</button>'+
     '<button class="btn-sec" id="LM-adopt" style="margin-top:0;margin-bottom:8px">🔗 別リストから学習履歴を引き継ぐ</button>'+
     '<button class="btn-sec" id="LM-edit" style="margin-top:0">✏️ リストを編集</button>';
   el('modal-bg').classList.add('on');
@@ -3901,10 +3119,6 @@ function listMenu(lid){
     listFilterRebuild();
     sel.value=lid;
     listRender();
-  });
-  el('LM-gen-defs').addEventListener('click',function(){
-    el('modal-bg').classList.remove('on');
-    bulkGenerateDefs(lid, function(){listRender();});
   });
   /* ── 別リストから学習履歴を引き継ぐ ──
      同じ内容のリストを二重に持ってしまった場合に、旧リストの学習状態を
@@ -7278,18 +6492,9 @@ function qResult(){
 }
 
 /* SETTINGS */
-function updateKeyStatus(){
-  var s=el('KEY-status');if(!s)return;
-  if(G.cfg.key){
-    s.innerHTML='<span style="color:var(--gn)">✅ APIキー設定済み（sk-ant-...'+G.cfg.key.slice(-4)+'）</span>';
-  } else {
-    s.innerHTML='<span style="color:var(--or)">⚠️ APIキー未設定</span>';
-  }
-}
 function settingsLoad(){
   themePresetsRender();
   themeControlsSync();
-  el('IN-apikey').value=G.cfg.key||'';
   el('SEL-size').value=G.cfg.size||20;
   el('TG-rev').classList.toggle('on',!!G.cfg.rev);
   el('TG-random').classList.toggle('on',!!G.cfg.random);
@@ -7339,13 +6544,7 @@ function settingsLoad(){
       if(inp)inp.addEventListener('input',function(){G.cfg.dictUrls[lv[0]]=this.value.trim();save();});
     });
   }
-  updateKeyStatus();
-  /* GitHub設定 */
-  var ghCfg=G.cfg.github||{};
-  if(el('GH-TOKEN'))el('GH-TOKEN').value=ghCfg.token||'';
-  if(el('GH-REPO'))el('GH-REPO').value=ghCfg.repo||'';
-  if(el('GH-PATH'))el('GH-PATH').value=ghCfg.path||'lingua-memoria.html';
-  if(el('TG-gh-auto'))el('TG-gh-auto').classList.toggle('on',!!ghCfg.auto);
+
 }
 
 /* BIND */
@@ -7408,24 +6607,6 @@ function bind(){
   el('B-add-back').addEventListener('click',function(){go('s-home');});
   el('SG-paste').addEventListener('click',function(){segSwitch('paste');});
   el('SG-file').addEventListener('click',function(){segSwitch('file');});
-  el('SG-ai').addEventListener('click',function(){segSwitch('ai');});
-
-  /* 抽出タイプボタン */
-  document.querySelectorAll('.opt-btn[data-type]').forEach(function(b){
-    b.addEventListener('click',function(){setType(this.getAttribute('data-type'));});
-  });
-
-  /* レベル選択ボタン */
-  document.querySelectorAll('.opt-btn[data-level]').forEach(function(b){
-    b.addEventListener('click',function(){setLevel(this.getAttribute('data-level'));});
-  });
-
-  /* 意味の言語ボタン */
-  document.querySelectorAll('#MLANG-btns .opt-btn[data-mlang]').forEach(function(b){
-    b.addEventListener('click',function(){setMeanLang(this.getAttribute('data-mlang'));});
-  });
-  /* 初期ヒント表示 */
-  (function(){var h=el('MLANG-hint');if(h)h.textContent=MLANG_HINTS[selMeanLang]||'';})();
 
   /* 言語選択ボタン */
   document.querySelectorAll('.lang-sel-btn').forEach(function(b){
@@ -7467,44 +6648,8 @@ function bind(){
   document.querySelectorAll('[data-fmode]').forEach(function(b){
     b.addEventListener('click',function(){setFileMode(this.getAttribute('data-fmode'));});
   });
-  document.querySelectorAll('[data-level][id^="FLV-"]').forEach(function(b){
-    b.addEventListener('click',function(){setFileLevel(this.getAttribute('data-level'));});
-  });
-  document.querySelectorAll('[data-type][id^="FTY-"]').forEach(function(b){
-    b.addEventListener('click',function(){setFileType(this.getAttribute('data-type'));});
-  });
   document.querySelectorAll('[data-jsec]').forEach(function(b){
     b.addEventListener('click',function(){setJsonSection(this.getAttribute('data-jsec'));});
-  });
-  el('B-ai-extract').addEventListener('click',aiExtract);
-
-  /* ---- カメラ撮影 ---- */
-  var _camBase64=null; /* 選択中の画像データ */
-  function camLoadImage(file){
-    if(!file)return;
-    var reader=new FileReader();
-    reader.onload=function(e){
-      _camBase64=e.target.result; /* data:image/jpeg;base64,... */
-      el('CAM-preview-img').src=_camBase64;
-      el('CAM-preview-wrap').style.display='block';
-      el('CAM-btns').style.display='none';
-    };
-    reader.readAsDataURL(file);
-  }
-  el('B-cam-shoot').addEventListener('click',function(){el('IN-cam-shoot').click();});
-  el('B-cam-gallery').addEventListener('click',function(){el('IN-cam-gallery').click();});
-  el('IN-cam-shoot').addEventListener('change',function(){camLoadImage(this.files[0]);this.value='';});
-  el('IN-cam-gallery').addEventListener('change',function(){camLoadImage(this.files[0]);this.value='';});
-  el('B-cam-retake').addEventListener('click',function(){
-    _camBase64=null;
-    el('CAM-preview-wrap').style.display='none';
-    el('CAM-btns').style.display='flex';
-    el('CAM-preview-img').src='';
-  });
-  el('B-cam-extract').addEventListener('click',function(){
-    if(!_camBase64){toast('画像が選択されていません');return;}
-    if(!G.cfg.key){toast('画像抽出にはAPIキーが必要です（設定画面で入力）');return;}
-    camAiExtract(_camBase64);
   });
   el('B-save').addEventListener('click',saveList);
   el('B-clr-prv').addEventListener('click',prvHide);
@@ -7564,18 +6709,6 @@ function bind(){
 
   el('B-set-back').addEventListener('click',function(){go('s-home');});
   el('B-save-file').addEventListener('click',function(){saveAsFile();});
-  ['GH-TOKEN','GH-REPO','GH-PATH'].forEach(function(id){
-    var inp=el(id);
-    if(inp)inp.addEventListener('change',function(){ghSaveInputs();sSet(G);});
-  });
-  el('B-save-key').addEventListener('click',function(){
-    var key=(el('IN-apikey').value||'').trim();
-    if(!key){toast('❌ APIキーを入力してください');return;}
-    if(!key.startsWith('sk-ant-')){toast('❌ APIキーの形式が正しくありません（sk-ant-で始まるキー）');return;}
-    G.cfg.key=key;save();
-    updateKeyStatus();
-    toast('✅ APIキーを保存しました');
-  });
   el('SEL-size').addEventListener('input',function(){
     var v=parseInt(this.value)||20;
     if(v<1)v=1;
@@ -8020,7 +7153,7 @@ var HELP_DEF = {
     {
       icon: '➕',
       title: '単語の追加方法',
-      body: '<b style="color:var(--tx)">貼り付け</b>：1行1単語、または「単語,訳」形式でテキスト貼り付け。JSON形式にも対応<br><b style="color:var(--tx)">ファイル</b>：CSV・TXTファイルをアップロード<br><b style="color:var(--tx)">AI抽出</b>：テキストをAIが自動で単語・訳を抽出（APIキー必要）'
+      body: '<b style="color:var(--tx)">貼り付け</b>：1行1単語、または「単語,訳」形式でテキスト貼り付け。JSON形式にも対応<br><b style="color:var(--tx)">ファイル</b>：CSV・TXTファイルをアップロード'
     },
     {
       icon: '📁',
@@ -8047,10 +7180,6 @@ var HELP_DEF = {
     {
       q: '習得済みになる条件は？',
       a: 'クイズで正解すると単語レベルが上がります。レベル5（最高）に達すると「習得済み」になります。ただし不正解になると一部レベルが下がります。忘却曲線モードでは、不正解単語は複数のインターバル（1・2・4・7・14日）を全て正解してはじめてレベルアップします。'
-    },
-    {
-      q: 'AIによる自動翻訳・抽出を使うには？',
-      a: '設定画面でOpenAI / Anthropic / DeepSeek などのAPIキーを登録してください。「単語を追加」→「AI抽出」タブからテキストを貼り付けると、AIが自動で単語と訳を抽出します。APIキーなしでは翻訳なしの単語のみ登録されます。'
     },
     {
       q: '単語を削除・編集するには？',
@@ -8269,7 +7398,7 @@ window.onload=function(){
     G._ebbingRestored=true;
     save();
   }
-  homeRefresh();updateLevelHint();
+  homeRefresh();
 
   /* ── エビングハウス期限超過ポップアップ ── */
   /* アプリ起動時に2日以上超過した単語があれば警告 */
