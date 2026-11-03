@@ -1,7 +1,8 @@
 <html lang="ja"><head>
 <meta charset="UTF-8">
-<!-- 🔒 外部への通信(fetch/XHR等)を全面禁止。スクリプトは本体と cdnjs(Excel読込・QR表示用)のみ許可 -->
-<meta http-equiv="Content-Security-Policy" content="connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com">
+<!-- 🔒 外部への通信(fetch/XHR等)を全面禁止。既定はすべて拒否し、必要なものだけ許可。
+     外部スクリプトは Excel読込・QR表示用の2ファイルだけを「ファイル単位」で許可（さらに読込時に SRI で改ざん検知） -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js; style-src 'unsafe-inline'; img-src data: blob:; media-src data: blob:; connect-src 'none'; form-action 'none'; base-uri 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -1142,10 +1143,10 @@ var IDB=null;
           var curTime=G&&G._savedAt||0;
           /* IndexedDBの方が新しければ（タブを閉じた後でも）上書き */
           if(idbTime>curTime){
-            G=idbData;
+            G=sanitizeDB(idbData)||G; /* 🔒 読み込んだデータを検証・正規化 */
             if(G&&G.cfg){delete G.cfg.key;delete G.cfg.github;} /* 🔒 旧APIキー等を消去 */
             /* embedded-dataも更新 */
-            try{var ed=document.getElementById('embedded-data');if(ed)ed.textContent=JSON.stringify(G);}catch(e){}
+            try{var ed=document.getElementById('embedded-data');if(ed)ed.textContent=jsonForScript(G);}catch(e){}
             /* 画面を再描画 */
             if(typeof homeRefresh==='function')homeRefresh();
           }
@@ -1174,7 +1175,7 @@ function sGet(){
 function sSet(v){
   v._savedAt=Date.now();
   try{localStorage.setItem(DBKEY,JSON.stringify(v));}catch(e){}
-  try{var ed=document.getElementById('embedded-data');if(ed)ed.textContent=JSON.stringify(v);}catch(e){}
+  try{var ed=document.getElementById('embedded-data');if(ed)ed.textContent=jsonForScript(v);}catch(e){} /* 🔒 script終了タグによる抜け出し防止 */
   idbSet(v); /* IndexedDBにも保存 */
   MEM=v;
 }
@@ -1228,7 +1229,190 @@ function kobunReading(s){
 function defLabel(lang){return lang==='kobun'?'用例・品詞':'英語定義';}
 
 function mkDB(){return{words:[],lists:[],folders:[],logs:[],cfg:{size:20,random:true,rev:false,speak:true,autonext:false,autonextSec:1.5,flashSec:2,flashAuto:false,spkMode:'both',duckVol:15,requeueMax:1,ebbing:true,ebbingMax:5,homeLangFilter:'en',listPlayMode:'foreign',listPlaySec:2,listPlayRepeat:false,themeBg:'#0a0a0f',themeTx:'#f0f0f8',themeAcc:'auto',dictUrls:{en:'https://ejje.weblio.jp/content/{word}',de:'https://www.duden.de/rechtschreibung/{word}',fr:'https://fjjf.weblio.jp/content/{word}',es:'',it:'',kobun:'https://kobun.weblio.jp/content/{word}'}},stats:{streak:0,lastDay:''}};}
-var G=sGet()||mkDB();
+/* ── 🔒 データの検証・正規化 ─────────────────────────────
+   読み込んだデータ（保存データ・JSONインポート・QR/リンク共有）は、そのまま
+   HTMLに組み込まれる箇所があるため、ここで型と書式を強制する。
+   ・ID       : 英数字と _ - のみ（それ以外は新IDに置換し、参照側も同じIDに付け替える）
+   ・言語     : LANGS にあるものだけ（それ以外は en）
+   ・色       : #RGB〜#RRGGBBAA のみ
+   ・数値     : 数値に変換（文字列が紛れ込んでHTMLに出るのを防ぐ）
+   ・文字列   : 文字列に変換し長さを制限
+   未知のフィールドはそのまま残す（学習記録を壊さないため）。 */
+var SAFE_ID_RE=/^[A-Za-z0-9_\-]{1,64}$/;
+var SAFE_CLR_RE=/^#[0-9a-fA-F]{3,8}$/;
+var SAFE_TS_RE=/^[0-9T:.\-+Z ]{1,40}$/;
+var BAD_KEYS={'__proto__':1,'constructor':1,'prototype':1};
+function sStr(v,max){
+  if(v==null)return '';
+  if(typeof v!=='string'&&typeof v!=='number'&&typeof v!=='boolean')return '';
+  var s=String(v);max=max||5000;
+  return s.length>max?s.slice(0,max):s;
+}
+function sNum(v,def){var n=Number(v);return (typeof v!=='object'||v===null)&&isFinite(n)?n:(def||0);}
+function sLang(v){return (typeof v==='string'&&Object.prototype.hasOwnProperty.call(LANGS,v))?v:'en';}
+function sObj(v){return !!v&&typeof v==='object'&&!Array.isArray(v);}
+function safeClr(c,def){return (typeof c==='string'&&SAFE_CLR_RE.test(c))?c:(def||'#7c5cfc');}
+function makeIdFixer(){
+  var map=Object.create(null);
+  return function(id){
+    if(id==null||id==='')return null;
+    var s=(typeof id==='string'||typeof id==='number')?String(id):'';
+    if(SAFE_ID_RE.test(s)&&!BAD_KEYS[s])return s;
+    var k;try{k=JSON.stringify(id);}catch(e){k='?'+Math.random();}
+    if(!map[k])map[k]=uid();
+    return map[k];
+  };
+}
+function sanitizeWord(w,fix){
+  if(!sObj(w))return null;
+  w.word=sStr(w.word,500);
+  if(!w.word)return null;
+  w.id=fix(w.id)||uid();
+  w.meaning=sStr(w.meaning);
+  if(w.def!==undefined)w.def=sStr(w.def);
+  w.lang=sLang(w.lang);
+  w.lid=w.lid!=null?fix(w.lid):null;
+  if(sObj(w.s)){
+    if('i' in w.s)w.s.i=sNum(w.s.i,1);
+    if('e' in w.s)w.s.e=sNum(w.s.e,EASE0);
+    if('k' in w.s&&w.s.k!==undefined)w.s.k=sNum(w.s.k,0);
+    if('l' in w.s)w.s.l=sNum(w.s.l,0);
+    if('d' in w.s)w.s.d=(w.s.d==null?null:sStr(w.s.d,40));
+  }else if(w.s!=null){
+    w.s={i:1,e:EASE0,d:null,k:0,l:0};
+  }
+  if(w.cr!=null)w.cr=sStr(w.cr,40);
+  if(w.lr!=null)w.lr=sStr(w.lr,40);
+  return w;
+}
+function sanitizeList(l,fix){
+  if(!sObj(l))return null;
+  l.id=fix(l.id)||uid();
+  l.name=sStr(l.name,200)||'リスト';
+  l.lang=sLang(l.lang);
+  l.clr=safeClr(l.clr);
+  if(l.ic!=null)l.ic=sStr(l.ic,8);
+  l.fid=l.fid!=null?fix(l.fid):null;
+  if(l.cursor!=null)l.cursor=sNum(l.cursor,0);
+  if(l.cr!=null)l.cr=sStr(l.cr,40);
+  return l;
+}
+function sanitizeFolder(f,fix){
+  if(!sObj(f))return null;
+  f.id=fix(f.id)||uid();
+  f.name=sStr(f.name,200)||'フォルダ';
+  if(f.parentId!=null)f.parentId=fix(f.parentId);
+  if(f.order!=null)f.order=sNum(f.order,0);
+  f.collapsed=!!f.collapsed;
+  return f;
+}
+function sanitizeLog(lg,fix){
+  if(!sObj(lg))return null;
+  if(typeof lg.ts!=='string'||!SAFE_TS_RE.test(lg.ts))return null;
+  ['ok','ng','acc','total','durationMs','dur'].forEach(function(k){if(k in lg)lg[k]=sNum(lg[k],0);});
+  if(lg.quizMode!=null)lg.quizMode=sStr(lg.quizMode,20);
+  if('testMode' in lg)lg.testMode=!!lg.testMode;
+  function ids(a){return Array.isArray(a)?a.map(fix).filter(Boolean):[];}
+  if('lids' in lg)lg.lids=ids(lg.lids);
+  if('words' in lg)lg.words=ids(lg.words);
+  function snaps(a,withMs){
+    if(!Array.isArray(a))return [];
+    return a.filter(sObj).map(function(m){
+      var o={id:fix(m.id),word:sStr(m.word,500),meaning:sStr(m.meaning),lang:sLang(m.lang),lid:fix(m.lid)};
+      if(withMs)o.answerMs=sNum(m.answerMs,0);
+      return o;
+    });
+  }
+  if('miss' in lg)lg.miss=snaps(lg.miss,false);
+  if('slow' in lg)lg.slow=snaps(lg.slow,true);
+  return lg;
+}
+function sanitizeEbbing(eb,fix){
+  var out={};
+  if(!sObj(eb))return out;
+  Object.keys(eb).forEach(function(k){
+    var r=eb[k];if(!sObj(r))return;
+    var nk=fix(k);if(!nk)return;
+    if(r.word!=null)r.word=sStr(r.word,500);
+    if(r.meaning!=null)r.meaning=sStr(r.meaning);
+    if(r.nextIdx!=null)r.nextIdx=sNum(r.nextIdx,0);
+    if(r.nextDate!=null)r.nextDate=sStr(r.nextDate,40);
+    if(r.wordId!=null)r.wordId=fix(r.wordId);
+    out[nk]=r;
+  });
+  return out;
+}
+function sanitizeCfg(c){
+  if(!sObj(c))return mkDB().cfg;
+  var HEX=/^#[0-9a-fA-F]{3,8}$/;
+  if(c.themeBg!=null&&!HEX.test(String(c.themeBg)))c.themeBg='#0a0a0f';
+  if(c.themeTx!=null&&!HEX.test(String(c.themeTx)))c.themeTx='#f0f0f8';
+  if(c.themeAcc!=null&&c.themeAcc!=='auto'&&!HEX.test(String(c.themeAcc)))c.themeAcc='auto';
+  if(c.homeLangFilter!=null&&c.homeLangFilter!=='all')c.homeLangFilter=sLang(c.homeLangFilter);
+  if(sObj(c.dictUrls)){
+    Object.keys(c.dictUrls).forEach(function(k){
+      var u=c.dictUrls[k];
+      if(typeof u!=='string'||(u&&!/^https?:\/\//i.test(u.trim())))c.dictUrls[k]='';
+    });
+  }else if(c.dictUrls!=null){delete c.dictUrls;}
+  return c;
+}
+/* DB全体を正規化（同一DB内のID付け替えは一貫させる） */
+function sanitizeDB(db){
+  if(!sObj(db))return null;
+  var fix=makeIdFixer();
+  function arr(a,fn){return (Array.isArray(a)?a:[]).map(function(x){return fn(x,fix);}).filter(Boolean);}
+  db.folders=arr(db.folders,sanitizeFolder);
+  db.lists=arr(db.lists,sanitizeList);
+  db.words=arr(db.words,sanitizeWord);
+  db.logs=arr(db.logs,sanitizeLog);
+  if(db.ebbing!=null)db.ebbing=sanitizeEbbing(db.ebbing,fix);
+  db.stats=sObj(db.stats)?db.stats:{streak:0,lastDay:''};
+  db.stats.streak=sNum(db.stats.streak,0);
+  db.stats.lastDay=sStr(db.stats.lastDay,40);
+  db.cfg=sanitizeCfg(db.cfg);
+  return db;
+}
+/* 外部から取り込んだデータ（ファイル/QR）を既存データへ追加統合する。既存IDと重複するものは追加しない */
+function mergeImported(d,opt){
+  opt=opt||{};
+  var inc=sanitizeDB({lists:d.lists,words:d.words,logs:d.logs,folders:[],stats:d.stats,cfg:{}});
+  var existListIds={},existWordIds={},existTs={};
+  G.lists.forEach(function(l){existListIds[l.id]=1;});
+  G.words.forEach(function(w){existWordIds[w.id]=1;});
+  var r={lists:0,words:0,logs:0};
+  inc.lists.forEach(function(l){if(!existListIds[l.id]){G.lists.push(l);existListIds[l.id]=1;r.lists++;}});
+  inc.words.forEach(function(w){if(!existWordIds[w.id]){G.words.push(w);existWordIds[w.id]=1;r.words++;}});
+  if(inc.logs.length){
+    if(!G.logs)G.logs=[];
+    G.logs.forEach(function(l){existTs[l.ts]=1;});
+    inc.logs.forEach(function(lg){if(!existTs[lg.ts]){G.logs.push(lg);existTs[lg.ts]=1;r.logs++;}});
+    G.logs.sort(function(a,b){return a.ts<b.ts?-1:a.ts>b.ts?1:0;});
+    if(G.logs.length>365)G.logs=G.logs.slice(-365);
+  }
+  /* stats（streak・lastDay）は、インポート元の方が進んでいる場合のみ上書き */
+  if(opt.stats&&sObj(d.stats)){
+    if(inc.stats.streak>(G.stats.streak||0)){
+      G.stats.streak=inc.stats.streak;
+      G.stats.lastDay=inc.stats.lastDay||G.stats.lastDay;
+    }
+  }
+  return r;
+}
+/* 辞書URL: http/https のみ許可（javascript: 等は無効化） */
+function safeDictUrl(lang,word){
+  var tpl=(G.cfg.dictUrls&&G.cfg.dictUrls[lang||'en'])||'';
+  if(typeof tpl!=='string'||!tpl)return '';
+  var url=tpl.trim().replace(/\{word\}/g,encodeURIComponent(word||''));
+  return /^https?:\/\//i.test(url)?url:'';
+}
+/* <script type="application/json"> に埋め込んでも終了タグで抜け出せないJSON */
+function jsonForScript(v){
+  return JSON.stringify(v).replace(/</g,'\\u003c').replace(/>/g,'\\u003e').replace(/&/g,'\\u0026')
+    .replace(/\u2028/g,'\\u2028').replace(/\u2029/g,'\\u2029');
+}
+
+var G=sanitizeDB(sGet())||mkDB();
 /* 起動時にlocalStorageとembedded-dataを同期 */
 (function(){try{sSet(G);}catch(e){}})();
 if(!G.folders) G.folders=[];
@@ -1441,13 +1625,16 @@ function exportBaseName(lists){
 function saveAsFile(){
   G._savedAt=Date.now();
   sSet(G);
-  var data=JSON.stringify(G);
+  /* 🔒 JSON中の < > & をエスケープして埋め込む（単語に script の終了タグ等が含まれていても
+     保存したHTMLの中でスクリプトとして実行されないようにする） */
+  var data=jsonForScript(G);
   var current=document.documentElement.outerHTML;
   var marker='embedded-data" type="application/json">';
   var si=current.indexOf(marker);
   if(si<0){toast('保存エラー');return;}
   si+=marker.length;
-  var ei=current.indexOf('</',si);
+  var ei=current.indexOf('<\/script>',si);
+  if(ei<0){toast('保存エラー');return;}
   var updated=current.slice(0,si)+data+current.slice(ei);
   var blob=new Blob([updated],{type:'text/html;charset=utf-8'});
   var a=document.createElement('a');
@@ -1740,6 +1927,8 @@ function showDelDialog(opts){
   el('del-dialog-title').textContent = opts.title || '削除の確認';
   el('del-dialog-msg').textContent   = opts.msg   || 'この操作は取り消せません。';
   el('del-dialog-ok').textContent    = (opts.icon||'🗑️') + '\u2002' + (opts.okLabel || '削除する');
+  var stripeBg = opts.stripe || 'linear-gradient(135deg,#ff4c6a,#c0392b)';
+  el('del-dialog-stripe').style.background = stripeBg;
 
   /* 表示・アニメーション */
   ov.style.display = 'flex';
@@ -1760,6 +1949,7 @@ function showDelDialog(opts){
 
   newOk.textContent = (opts.icon||'🗑️') + '\u2002' + (opts.okLabel || '削除する');
   newCan.textContent = 'キャンセル';
+  newOk.style.background = stripeBg;
 
   newOk.addEventListener('click',  function(){ close(); if(opts.onOk) opts.onOk(); });
   newCan.addEventListener('click', close);
@@ -1800,7 +1990,7 @@ function homeRefresh(){
   /* 言語フィルターボタンを描画 */
   (function(){
     var usedLangs=['all'];
-    G.words.forEach(function(w){var l=w.lang||'en';if(usedLangs.indexOf(l)<0)usedLangs.push(l);});
+    G.words.forEach(function(w){var l=sLang(w.lang);if(usedLangs.indexOf(l)<0)usedLangs.push(l);});
     var wrap=el('H-lang-filter-btns');
     if(!wrap)return;
     /* 複数言語がない場合は非表示 */
@@ -1906,7 +2096,7 @@ function homeListsRender(){
       '<div class="swipe-del-bg"><span>🗑️</span>削除</div>'+
       '<div class="swipe-inner">'+
         '<button class="list-card" data-lid="'+esc(lst.id)+'" style="padding-bottom:10px">'+
-          '<div class="list-ic" style="background:'+lst.clr+'20">'+(l?l.flag:'📗')+'</div>'+
+          '<div class="list-ic" style="background:'+safeClr(lst.clr)+'20">'+(l?l.flag:'📗')+'</div>'+
           '<div class="list-inf">'+
             '<div class="list-name">'+esc(lst.name)+langBadge(lst.lang)+'</div>'+
             '<div class="list-meta">'+total+'単語'+
@@ -2594,7 +2784,10 @@ function xlsxRead(file){
   }
   if(typeof XLSX!=='undefined'){loaded();doRead();return;}
   var s=document.createElement('script');
-  s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  /* 🔒 SRI: 配信元でファイルが改ざんされていたら読み込まない */
+  s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+  s.integrity='sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9DA==';
+  s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';
   s.onload=function(){loaded();doRead();};
   s.onerror=function(){loaded();toast('オフライン環境ではExcel非対応。CSVに変換してください。');};
   document.head.appendChild(s);
@@ -3277,12 +3470,11 @@ function wordDetail(wid){
 }
 function mkCard(l,v){return'<div style="background:var(--sf2);border-radius:9px;padding:10px"><div style="font-size:10px;color:var(--tx2);margin-bottom:3px">'+l+'</div><div style="font-size:14px;font-weight:600">'+v+'</div></div>';}
 function dictLink(word,lang,extraStyle,extraAttr){
-  var tpl=(G.cfg.dictUrls&&G.cfg.dictUrls[lang||'en'])||'';
-  if(!tpl)return '';
-  var url=tpl.replace(/\{word\}/g,encodeURIComponent(word));
+  var url=safeDictUrl(lang,word); /* 🔒 http/https 以外は出さない */
+  if(!url)return '';
   var l=LANGS[lang||'en'];
   var lbl=l?l.flag+'\u00a0辞書':'辞書';
-  return '<a href="'+url+'" target="_blank" rel="noopener"'+(extraAttr?' '+extraAttr:'')+' style="'+extraStyle+'">🔍 '+lbl+'</a>';
+  return '<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer"'+(extraAttr?' '+extraAttr:'')+' style="'+extraStyle+'">🔍 '+lbl+'</a>';
 }
 
 /* ── リスト編集モーダル ── */
@@ -4515,7 +4707,7 @@ function buildCombinedReportHTML(title, now, sessions, totalQ, ok, ng, acc, tota
       grid+bars+numLabels+xlbls+'</svg>';
 
     /* ツールチップ用データ */
-    var tooltipData=JSON.stringify(pts.map(function(p){return{diff:p.diff,n:p.n,words:p.words};}));
+    var tooltipData=jsonForScript(pts.map(function(p){return{diff:p.diff,n:p.n,words:p.words};}));
 
     var html='<div style="overflow-x:auto;position:relative" id="ebbing-chart-wrap">'+svgHtml+
       '<div id="eb-tooltip" style="display:none;position:absolute;background:#1a1a2e;border:1px solid #7c5cfc;border-radius:10px;padding:10px 14px;font-size:9.5pt;min-width:180px;max-width:280px;z-index:100;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.3)">'+
@@ -4530,6 +4722,7 @@ function buildCombinedReportHTML(title, now, sessions, totalQ, ok, ng, acc, tota
       'var tip=document.getElementById("eb-tooltip");'+
       'if(!svg||!tip)return;'+
       'tip.style.pointerEvents="auto";'+
+      'function escT(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;");}'+
       'function showTip(bar){'+
         'var diff=parseInt(bar.getAttribute("data-diff"));'+
         'var d=data.find(function(x){return x.diff===diff;});'+
@@ -4538,7 +4731,7 @@ function buildCombinedReportHTML(title, now, sessions, totalQ, ok, ng, acc, tota
         'var label=diff===0?"今日（期限切れ含む）":(dt.getMonth()+1)+"月"+(dt.getDate())+"日（"+diff+"日後）";'+
         'document.getElementById("eb-tip-title").textContent=label+" — "+d.n+"単語";'+
         'document.getElementById("eb-tip-list").innerHTML=d.words.map(function(w){'+
-          'return "<span style=\"color:#ffd700;font-weight:600\">"+w.word+"</span> <span style=\"color:#aac;font-size:8.5pt\">"+w.meaning+"</span>";'+
+          'return "<span style=\'color:#ffd700;font-weight:600\'>"+escT(w.word)+"</span> <span style=\'color:#aac;font-size:8.5pt\'>"+escT(w.meaning)+"</span>";'+
         '}).join("<br>");'+
         'tip.style.display="block";'+
         'var rect=wrap.getBoundingClientRect();'+
@@ -5037,7 +5230,7 @@ function buildCombinedReportHTML(title, now, sessions, totalQ, ok, ng, acc, tota
         '<td style="text-align:center">'+(i+1)+'</td>'+
         '<td><strong>'+escHtml(w.word)+'</strong></td>'+
         '<td>'+escHtml(w.meaning)+'</td>'+
-        '<td>'+(langNames[w.lang]||w.lang)+'</td>'+
+        '<td>'+escHtml(langNames[w.lang]||w.lang)+'</td>'+
         '<td style="color:#c62828;font-weight:700;text-align:center">'+w.count+'回</td>'+
         missDateCell+
         nextCell+'</tr>';
@@ -5055,7 +5248,7 @@ function buildCombinedReportHTML(title, now, sessions, totalQ, ok, ng, acc, tota
       var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
       slowRows+='<tr><td style="text-align:center">'+(medal||'<span style="color:#aaa">'+(i+1)+'</span>')+'</td>'+
         '<td><strong>'+escHtml(w.word)+'</strong></td><td>'+escHtml(w.meaning)+'</td>'+
-        '<td>'+(langNames[w.lang]||w.lang)+'</td>'+
+        '<td>'+escHtml(langNames[w.lang]||w.lang)+'</td>'+
         '<td style="color:'+secClr+';font-weight:700;text-align:center">'+avgSec+'秒</td>'+
         '<td style="text-align:center;color:#888">'+w.count+'回</td></tr>';
     });
@@ -5182,7 +5375,7 @@ function showListSelectModal(mode){
     var pct=cnt>0?Math.min(100,Math.round(cursor/cnt*100)):0;
     var progClr=pct>=100?'#4cff91':pct>=60?'#5cf8fc':'#7c5cfc';
     html+='<button class="list-sel-btn" data-lid="'+esc(lst.id)+'" style="display:flex;align-items:center;gap:10px;width:100%;background:var(--sf2);border:none;border-radius:12px;padding:12px 14px;margin-bottom:8px;cursor:pointer;font-family:inherit;text-align:left;-webkit-appearance:none;">'+
-      '<div style="width:36px;height:36px;border-radius:9px;background:'+lst.clr+'20;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+(l?l.flag:'📗')+'</div>'+
+      '<div style="width:36px;height:36px;border-radius:9px;background:'+safeClr(lst.clr)+'20;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">'+(l?l.flag:'📗')+'</div>'+
       '<div style="flex:1;min-width:0">'+
         '<div style="font-size:14px;font-weight:600;color:var(--tx)">'+esc(lst.name)+langBadge(lst.lang)+'</div>'+
         '<div style="font-size:11px;color:var(--tx2);margin-top:2px">'+cnt+'単語 · 進捗 '+pct+'%</div>'+
@@ -5938,7 +6131,7 @@ function qRenderSpellChoice(q){
   var opts=shuffle([word].concat(spellTypos(word,2)));
   var h='';
   opts.forEach(function(o,i){
-    h+='<button class="ch-btn" data-w="'+o+'"><div class="ch-lt">'+(i+1)+'</div><div class="ch-tx" style="font-size:18px;letter-spacing:.04em">'+esc(o)+'</div><div class="ch-ic"></div></button>';
+    h+='<button class="ch-btn" data-w="'+esc(o)+'"><div class="ch-lt">'+(i+1)+'</div><div class="ch-tx" style="font-size:18px;letter-spacing:.04em">'+esc(o)+'</div><div class="ch-ic"></div></button>';
   });
   h+='<div class="sp-miss"><div class="sp-face">😵</div><span id="SP-miss-n">0</span><span style="font-weight:400;font-size:11px">/3</span></div>';
   h+='<button class="ch-dk" id="QZ-dontknow">❓ 分からない</button>';
@@ -6053,8 +6246,8 @@ function qSpellFinish(ok,dontKnow){
   el('FB-dt').textContent=Q.testMode?'':(ok?'次回: '+(q.s&&q.s.i||1)+'日後':'1日後に再復習');
   var _fbw=el('FB-weblio');
   if(_fbw){
-    var _t=(G.cfg.dictUrls&&G.cfg.dictUrls[q.lang||'en'])||'';
-    _fbw.innerHTML=_t?'<a href="'+_t.replace(/\{word\}/g,encodeURIComponent(q.word))+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,120,220,.15);border:1px solid rgba(0,120,220,.35);color:#5ab4ff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:16px;text-decoration:none">🔍 辞書で調べる</a>':'';
+    var _t=safeDictUrl(q.lang||'en',q.word);
+    _fbw.innerHTML=_t?'<a href="'+esc(_t)+'" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,120,220,.15);border:1px solid rgba(0,120,220,.35);color:#5ab4ff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:16px;text-decoration:none">🔍 辞書で調べる</a>':'';
   }
   /* 回答後に正しい発音を再生（スペル確認用） */
   if(window.speechSynthesis&&G.cfg.speak!==false)speak(q.word,q.lang||'en');
@@ -6195,7 +6388,7 @@ function qRender(){
 
   /* 辞書リンク */
   var _wlk=el('QZ-weblio-link');
-  if(_wlk){var _wltpl=(G.cfg.dictUrls&&G.cfg.dictUrls[q.lang||'en'])||'';if(_wltpl){_wlk.href=_wltpl.replace(/\{word\}/g,encodeURIComponent(q.word));_wlk.style.display='inline-block';}else{_wlk.style.display='none';}}
+  if(_wlk){var _wltpl=safeDictUrl(q.lang||'en',q.word);if(_wltpl){_wlk.href=_wltpl;_wlk.style.display='inline-block';}else{_wlk.style.display='none';}}
 
   /* 発音ボタン — 外国語が表示されているときだけ表示 */
   var spk=el('B-speak');
@@ -6297,7 +6490,7 @@ function qDontKnow(){
   Q.lastWasWrong=true;
   el('FB-tx').innerHTML='<span style="color:var(--ac3)">❓ 分からない</span> → <span style="color:var(--gn)">'+esc(Q.ca)+'</span>';
   el('FB-dt').textContent=Q.testMode?'':'1日後に再復習';
-  var _fbw=el('FB-weblio');if(_fbw){var q=Q.q[Q.i];var _t=(G.cfg.dictUrls&&G.cfg.dictUrls[q.lang||'en'])||'';_fbw.innerHTML=_t?'<a href="'+_t.replace(/\{word\}/g,encodeURIComponent(q.word))+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,120,220,.15);border:1px solid rgba(0,120,220,.35);color:#5ab4ff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:16px;text-decoration:none">🔍 辞書で調べる</a>':'';}
+  var _fbw=el('FB-weblio');if(_fbw){var q=Q.q[Q.i];var _t=safeDictUrl(q.lang||'en',q.word);_fbw.innerHTML=_t?'<a href="'+esc(_t)+'" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,120,220,.15);border:1px solid rgba(0,120,220,.35);color:#5ab4ff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:16px;text-decoration:none">🔍 辞書で調べる</a>':'';}
     el('FB').classList.add('on');
 }
 
@@ -6342,7 +6535,7 @@ function qSelect(i){
         ?'<span style="color:var(--rd)">✗ 不正解</span> → '+esc(Q.ca)+'<span style="color:var(--tx2);font-size:11px"> （再出題なし）</span>'
         :'<span style="color:var(--rd)">✗ 不正解</span> → '+esc(Q.ca));
   el('FB-dt').textContent=Q.testMode?'':(ok?'次回: '+(q.s&&q.s.i||1)+'日後':'1日後に再復習');
-  var _fbw2=el('FB-weblio');if(_fbw2){var _t2=(G.cfg.dictUrls&&G.cfg.dictUrls[q.lang||'en'])||'';_fbw2.innerHTML=_t2?'<a href="'+_t2.replace(/\{word\}/g,encodeURIComponent(q.word))+'" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,120,220,.15);border:1px solid rgba(0,120,220,.35);color:#5ab4ff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:16px;text-decoration:none">🔍 辞書で調べる</a>':'';}
+  var _fbw2=el('FB-weblio');if(_fbw2){var _t2=safeDictUrl(q.lang||'en',q.word);_fbw2.innerHTML=_t2?'<a href="'+esc(_t2)+'" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,120,220,.15);border:1px solid rgba(0,120,220,.35);color:#5ab4ff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:16px;text-decoration:none">🔍 辞書で調べる</a>':'';}
     el('FB').classList.add('on');
   /* 自動進行 — 正解時のみ（不正解は手動で確認させる） */
   if(ok&&G.cfg.autonext){
@@ -6475,7 +6668,7 @@ function qResult(){
     uniqueMiss.forEach(function(w,i){
       var div=document.createElement('div');
       div.className='res-miss-item';
-      div.innerHTML='<span class="rmi-n">'+(i+1)+'</span><span class="rmi-word">'+w.word+'</span><span class="rmi-mean">'+(w.meaning||'')+'</span>';
+      div.innerHTML='<span class="rmi-n">'+(i+1)+'</span><span class="rmi-word">'+esc(w.word)+'</span><span class="rmi-mean">'+esc(w.meaning||'')+'</span>'; /* 🔒 エスケープ */
       missList.appendChild(div);
     });
     missPanel.style.display='block';
@@ -6541,7 +6734,13 @@ function settingsLoad(){
     }).join('');
     _langs.forEach(function(lv){
       var inp=el('DICT-'+lv[0]);
-      if(inp)inp.addEventListener('input',function(){G.cfg.dictUrls[lv[0]]=this.value.trim();save();});
+      if(inp)inp.addEventListener('input',function(){
+        var v=this.value.trim();
+        /* 🔒 http/https 以外（javascript: など）は保存しない */
+        if(v&&!/^https?:\/\//i.test(v)){this.style.borderColor='var(--rd)';return;}
+        this.style.borderColor='';
+        G.cfg.dictUrls[lv[0]]=v;save();
+      });
     });
   }
 
@@ -6965,39 +7164,10 @@ function bind(){
     fr.onload=function(ev){
       try{
         var d=JSON.parse(ev.target.result);
-        if(!d.words||!d.lists)throw 0;
-        /* 追加統合: 既存IDと重複しないものだけ追加 */
-        var existListIds=G.lists.map(function(l){return l.id;});
-        var existWordIds=G.words.map(function(w){return w.id;});
-        var addedLists=0,addedWords=0;
-        d.lists.forEach(function(lst){
-          if(existListIds.indexOf(lst.id)<0){G.lists.push(lst);addedLists++;}
-        });
-        d.words.forEach(function(w){
-          if(existWordIds.indexOf(w.id)<0){G.words.push(w);addedWords++;}
-        });
-        /* 学習ログのマージ（重複はtsで判定） */
-        var addedLogs=0;
-        if(d.logs&&d.logs.length){
-          if(!G.logs)G.logs=[];
-          var existTs=G.logs.map(function(l){return l.ts;});
-          d.logs.forEach(function(lg){
-            if(existTs.indexOf(lg.ts)<0){G.logs.push(lg);addedLogs++;}
-          });
-          /* 日付順に並べ直す */
-          G.logs.sort(function(a,b){return a.ts<b.ts?-1:a.ts>b.ts?1:0;});
-          /* 上限365件 */
-          if(G.logs.length>365)G.logs=G.logs.slice(-365);
-        }
-        /* stats（streak・lastDay）は、インポート元の方が進んでいる場合のみ上書き */
-        if(d.stats){
-          var localStreak=G.stats.streak||0;
-          var remoteStreak=d.stats.streak||0;
-          if(remoteStreak>localStreak){
-            G.stats.streak=remoteStreak;
-            G.stats.lastDay=d.stats.lastDay||G.stats.lastDay;
-          }
-        }
+        if(!d||!Array.isArray(d.words)||!Array.isArray(d.lists))throw 0;
+        /* 追加統合: 既存IDと重複しないものだけ追加（🔒 取り込む前に検証・正規化） */
+        var r=mergeImported(d,{stats:true});
+        var addedLists=r.lists,addedWords=r.words,addedLogs=r.logs;
         save();homeRefresh();
         var msg='✅ '+addedLists+'リスト・'+addedWords+'単語を追加しました';
         if(addedLogs>0)msg+='（学習記録+'+addedLogs+'件）';
@@ -7026,9 +7196,13 @@ function bind(){
           s=(s||'').trim().toLowerCase();
           return s.replace(/[\u2018\u2019]/g,"'").replace(/\s+/g,' ');
         }
-        var byId={},byWord={};
+        if(!Array.isArray(src))throw new Error('単語が見つかりません');
+        var byId=Object.create(null),byWord=Object.create(null);
         src.forEach(function(w){
-          if(!w||!w.word)return;
+          /* 🔒 文字列として扱える項目だけ取り出す */
+          if(!sObj(w))return;
+          w={id:(typeof w.id==='string'?w.id:''),word:sStr(w.word,500),meaning:sStr(w.meaning),def:sStr(w.def)};
+          if(!w.word)return;
           if(w.id)byId[w.id]=w;
           var k=nk(w.word);
           if(!(k in byWord))byWord[k]=w;
@@ -7314,7 +7488,10 @@ function genQr(text, targetId){
   }
   if(typeof QRCode!=='undefined'){doGen();return;}
   var s=document.createElement('script');
-  s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  /* 🔒 SRI: 配信元でファイルが改ざんされていたら読み込まない */
+  s.src='https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
+  s.integrity='sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==';
+  s.crossOrigin='anonymous';s.referrerPolicy='no-referrer';
   s.onload=doGen;
   s.onerror=function(){area.innerHTML='<span style="color:var(--rd)">QRライブラリの読み込みに失敗しました</span>';};
   document.head.appendChild(s);
@@ -7341,27 +7518,31 @@ window.onload=function(){
   /* QRコードからのインポート処理 */
   var hash=location.hash;
   if(hash&&hash.indexOf('#import=')===0){
+    /* 🔒 再読み込みで再実行されないよう、まずハッシュを消す */
+    try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
     try{
       var b64=hash.slice(8);
+      if(b64.length>200000)throw 0; /* 異常に大きいデータは無視 */
       var json=decodeURIComponent(escape(atob(b64)));
       var d=JSON.parse(json);
-      if(d.words&&d.lists){
-        var existListIds=G.lists.map(function(l){return l.id;});
-        var existWordIds=G.words.map(function(w){return w.id;});
-        var addedLists=0,addedWords=0;
-        d.lists.forEach(function(lst){if(existListIds.indexOf(lst.id)<0){G.lists.push(lst);addedLists++;}});
-        d.words.forEach(function(w){if(existWordIds.indexOf(w.id)<0){G.words.push(w);addedWords++;}});
-        /* 学習ログのマージ */
-        if(d.logs&&d.logs.length){
-          if(!G.logs)G.logs=[];
-          var existTs=G.logs.map(function(l){return l.ts;});
-          d.logs.forEach(function(lg){if(existTs.indexOf(lg.ts)<0)G.logs.push(lg);});
-          G.logs.sort(function(a,b){return a.ts<b.ts?-1:a.ts>b.ts?1:0;});
-          if(G.logs.length>365)G.logs=G.logs.slice(-365);
-        }
-        save();
-        history.replaceState(null,'',location.pathname); /* ハッシュを消す */
-        setTimeout(function(){toast('📱 QRから '+addedLists+'リスト・'+addedWords+'単語をインポートしました！');},500);
+      if(d&&Array.isArray(d.words)&&Array.isArray(d.lists)){
+        /* 🔒 リンクを開いただけで勝手に取り込まない。内容を見せて確認してから取り込む */
+        var preview=sanitizeDB({lists:JSON.parse(JSON.stringify(d.lists)),words:JSON.parse(JSON.stringify(d.words)),folders:[],logs:[],stats:{},cfg:{}});
+        var names=preview.lists.slice(0,5).map(function(l){return '「'+l.name+'」';}).join('\n')+(preview.lists.length>5?'\nほか':'');
+        setTimeout(function(){
+          showDelDialog({
+            icon:'📥',
+            stripe:'linear-gradient(135deg,#7c5cfc,#5c3fd0)',
+            title:'共有データを取り込みますか？',
+            msg:'QRコード／リンクに含まれるデータ:\n'+(names||'（リスト名なし）')+'\n'+preview.lists.length+'リスト・'+preview.words.length+'単語\n\n心当たりのないリンクなら「キャンセル」を押してください。',
+            okLabel:'取り込む',
+            onOk:function(){
+              var r=mergeImported(d,{stats:false});
+              save();homeRefresh();
+              toast('📱 QRから '+r.lists+'リスト・'+r.words+'単語をインポートしました！');
+            }
+          });
+        },500);
       }
     }catch(e){/* 無効なハッシュは無視 */}
   }
