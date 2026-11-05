@@ -116,6 +116,11 @@ html,body { width:100%; height:100%; overflow:hidden; background:var(--bg); colo
 .calc-key{flex:1 0 auto;min-width:44px;padding:9px 6px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:var(--sf2);color:var(--tx);font-size:16px;font-family:inherit;cursor:pointer}
 .calc-key:active{background:rgba(124,92,252,.25)}
 .calc-expl{margin-top:6px;font-size:12px;color:var(--tx2);line-height:1.5}
+.cz-sent{font-size:clamp(17px,4.6vw,24px);font-weight:600;line-height:1.6;text-align:left;font-family:Georgia,'Times New Roman',serif;letter-spacing:0}
+.cz-blank{display:inline-block;min-width:4.2em;border-bottom:2px solid var(--ac);color:transparent;margin:0 .15em;line-height:1.1}
+.cz-fill{color:var(--gn);font-weight:700;border-bottom:2px solid var(--gn);padding:0 .1em}
+.cz-ja-btn{margin-top:10px;font-size:12px;padding:5px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.15);background:var(--sf2);color:var(--tx2);font-family:inherit;cursor:pointer}
+.cz-ja{margin-top:8px;font-size:13px;color:var(--tx2);line-height:1.6;text-align:left;font-weight:500}
 
 .seg { display:flex; background:var(--sf); border-radius:11px; padding:3px; margin-bottom:16px; }
 .seg-btn { flex:1; padding:8px 3px; border:none; border-radius:8px; background:transparent; color:var(--tx2); font-size:12px; font-weight:500; cursor:pointer; -webkit-appearance:none; font-family:inherit; }
@@ -941,6 +946,10 @@ schön,美しい"></textarea>
         <span class="set-lbl">🔀 ランダム出題（未出題から）</span>
         <button class="toggle" id="TG-random"></button>
       </div>
+      <div class="set-row" id="ROW-cloze">
+        <span class="set-lbl">🧩 例文の穴埋め問題</span>
+        <select id="SEL-cloze" style="background:var(--sf2);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--tx);font-family:inherit;font-size:13px;font-weight:600;padding:5px 8px;outline:none"><option value="off">しない</option><option value="mix">ときどき</option><option value="only">例文があれば必ず</option></select>
+      </div>
       <div class="set-row" id="ROW-rev">
         <span class="set-lbl">🔄 逆クイズ（日→外国語）混在</span>
         <button class="toggle" id="TG-rev"></button>
@@ -1459,6 +1468,9 @@ function sanitizeWord(w,fix){
   w.id=fix(w.id)||uid();
   w.meaning=sStr(w.meaning);
   if(w.def!==undefined)w.def=sStr(w.def);
+  if(w.ex!==undefined)w.ex=sStr(w.ex,1000);
+  if(w.exJa!==undefined)w.exJa=sStr(w.exJa,1000);
+  if(w.pos!==undefined)w.pos=/^(n|v|a|r|x|phr|pv|pb|pp|pn)$/.test(w.pos)?w.pos:'';
   w.lang=sLang(w.lang);
   w.lid=w.lid!=null?fix(w.lid):null;
   if(sObj(w.s)){
@@ -2851,7 +2863,8 @@ function parsePaste(){
           var w=pickField(item,['word','term','front','expression','vocab','german','deutsch','french','spanish','english','kobun','kogo','question','problem','formula']);
           var m=pickField(item,['meaning','translation','back','japanese','ja','answer']);
           var df=pickField(item,['def','definition','enDef','endef','foreignMeaning','foreign_meaning','gloss','explanation','solution']);
-          return w?{word:String(w).trim(),meaning:String(m).trim(),def:String(df).trim()}:null;
+          var ex=pickField(item,['ex','example','exampleSentence','example_sentence','sentence','context']),exj=pickField(item,['exJa','ex_ja','exampleJa','example_ja','exampleTranslation','sentenceJa','sentence_ja']);
+          return w?{word:String(w).trim(),meaning:String(m).trim(),def:String(df).trim(),ex:String(ex).trim(),exJa:String(exj).trim(),pos:String(pickField(item,['pos'])).trim()}:null;
         }).filter(Boolean);
       }
 
@@ -3031,7 +3044,8 @@ function jsonImport(text, fname){
       var m=pickField(item,['meaning','translation','back','japanese','ja','answer']);
       /* その外国語による意味（英英など）: def / definition / enDef / foreignMeaning など。数学・化学は explanation / solution（解説） */
       var df=pickField(item,['def','definition','enDef','endef','foreignMeaning','foreign_meaning','gloss','explanation','solution']);
-      return w?{word:String(w).trim(),meaning:String(m).trim(),def:String(df).trim()}:null;
+      var ex=pickField(item,['ex','example','exampleSentence','example_sentence','sentence','context']),exj=pickField(item,['exJa','ex_ja','exampleJa','example_ja','exampleTranslation','sentenceJa','sentence_ja']);
+      return w?{word:String(w).trim(),meaning:String(m).trim(),def:String(df).trim(),ex:String(ex).trim(),exJa:String(exj).trim(),pos:String(pickField(item,['pos'])).trim()}:null;
     }).filter(Boolean);
   }
 
@@ -3092,10 +3106,15 @@ function saveList(){
   }
   var newWordObjs=[];
   var added=0;
+  var filledEx=0;
   prevWords.forEach(function(pw){
     var ex=G.words.some(function(w){return w.word===pw.word&&w.lid===lst.id;});
+    /* 🧩 すでにある単語には、例文が未登録なら例文・和訳だけ補う（学習記録はそのまま） */
+    if(ex&&pw.ex){G.words.forEach(function(w){if(w.word===pw.word&&w.lid===lst.id&&!w.ex){w.ex=pw.ex;if(pw.exJa)w.exJa=pw.exJa;if(pw.pos&&!w.pos)w.pos=pw.pos;filledEx++;}});}
     if(!ex){
       var wobj={id:uid(),word:pw.word,meaning:pw.meaning||'',def:pw.def||'',lid:lst.id,lang:selLang,s:{i:1,e:EASE0,d:null,k:0,l:0},cr:new Date().toISOString(),lr:null};
+      if(pw.ex){wobj.ex=pw.ex;if(pw.exJa)wobj.exJa=pw.exJa;}
+      if(pw.pos)wobj.pos=pw.pos;
       G.words.push(wobj);
       newWordObjs.push(wobj);
       added++;
@@ -3104,7 +3123,7 @@ function saveList(){
   save();prvHide();
   if(ni)ni.value='';
   var ta=el('IN-paste-text');if(ta)ta.value='';
-  toast('✅ '+added+'単語を「'+listName+'」に追加しました');
+  toast('✅ '+added+'単語を「'+listName+'」に追加しました'+(filledEx?'（既存の'+filledEx+'語に例文を追加）':''));
   setTimeout(function(){go('s-home');},500);
 }
 
@@ -3843,6 +3862,10 @@ function editWord(wid){
     '<input class="inp" id="EW-meaning" type="text" value="'+escHtml(w.meaning||'')+'" style="margin-bottom:12px">'+
     '<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">'+defLabel(w.lang)+'</div>'+
     '<input class="inp" id="EW-def" type="text" value="'+escHtml(w.def||'')+'" placeholder="'+(w.lang==='kobun'?'例: 【形容動詞・ナリ】夕暮れはいとあはれなり。（夕暮れはたいそうしみじみと趣深い。）':(w.lang==='math'||w.lang==='chem')?'例: 両辺から3を引いて 2x=4（$…$ で数式、\\ce{…} で化学式）':'例: to leave someone or something permanently')+'" style="margin-bottom:12px">'+
+    (isMathLang(w.lang)?'':'<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">例文（空欄にする部分を { } で囲む・省略時は自動で探す）</div>'+
+    '<textarea class="inp" id="EW-ex" rows="2" placeholder="例: The new rule will {supersede} the old one." style="margin-bottom:12px;resize:vertical">'+escHtml(w.ex||'')+'</textarea>'+
+    '<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">例文の和訳</div>'+
+    '<input class="inp" id="EW-exja" type="text" value="'+escHtml(w.exJa||'')+'" placeholder="例: 新しい規則が古い規則に取って代わる。" style="margin-bottom:12px">')+
     '<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">言語</div>'+
     '<select class="inp" id="EW-lang" style="margin-bottom:12px">'+langOpts+'</select>'+
     '<div class="lbl" style="font-size:11px;color:var(--tx2);margin-bottom:6px">所属リスト</div>'+
@@ -3857,6 +3880,7 @@ function editWord(wid){
     if(!word){toast('単語を入力してください');return;}
     w.word=word; w.meaning=meaning;
     w.def=(el('EW-def').value||'').trim();
+    if(el('EW-ex')){var _ex=(el('EW-ex').value||'').trim();if(_ex&&!clozeParse(_ex,word))toast('⚠️ 例文の中に「'+word+'」が見つかりません。空欄にする部分を { } で囲んでください');w.ex=_ex;w.exJa=(el('EW-exja').value||'').trim();}
     w.lang=el('EW-lang').value;
     w.lid=el('EW-list').value;
     save();el('modal-bg').classList.remove('on');
@@ -6492,6 +6516,177 @@ function qSpellFinish(ok,dontKnow){
 }
 /* ══════════ ✏️ スペルモード ここまで ══════════ */
 
+/* ══════════ 🧩 例文の4択穴埋め問題 ══════════
+   カードの ex（例文）と exJa（例文の和訳）を使う。
+   ・空欄にする部分は { } で囲む。例: "The new rule will {supersede} the old one."
+     熟語で語が離れているときは複数囲める。例: "We {took} his help {for granted}."
+   ・{ } がなければ、例文の中から単語（とその活用形）を自動で探す。
+   ・選択肢は同じ言語・同じ種類（単語/熟語）のカードから選ぶ。単語は例文の形（-s, -ed, -ing など）に合わせて活用させる。
+   ・設定「例文の穴埋め問題」: しない / ときどき（例文のあるカードの半分）/ 例文があれば必ず */
+function czEsc(s){return esc(s);}
+function czStrip(ex){return String(ex||'').replace(/[{}]/g,'');}
+/* 例文 → [{b:false,v:'text'},{b:true,v:'surface'}]。空欄が見つからなければ null */
+function clozeParse(ex,word){
+  ex=String(ex||'');if(!ex.trim()||!word)return null;
+  var parts=[],m,re=/\{([^{}]+)\}/g,last=0,nb=0;
+  while((m=re.exec(ex))){
+    if(m.index>last)parts.push({b:false,v:ex.slice(last,m.index)});
+    parts.push({b:true,v:m[1]});nb++;last=re.lastIndex;
+  }
+  if(nb){if(last<ex.length)parts.push({b:false,v:ex.slice(last)});return parts;}
+  /* { } なし: 自動検出 */
+  var w=String(word).trim(),lw=w.toLowerCase();
+  var pat;
+  if(/\s/.test(w)){
+    pat=new RegExp('(^|[^A-Za-z])('+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/\s+/g,'\\s+')+')(?![A-Za-z])','i');
+  }else{
+    var stem=lw.length>4?lw.replace(/(e|y)$/,''):lw;
+    pat=new RegExp('(^|[^A-Za-z])('+stem.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'[a-z]{0,4})(?![A-Za-z])','i');
+  }
+  m=pat.exec(ex);if(!m)return null;
+  var st=m.index+m[1].length,en=st+m[2].length;
+  return [{b:false,v:ex.slice(0,st)},{b:true,v:ex.slice(st,en)},{b:false,v:ex.slice(en)}].filter(function(p){return p.v!==''||p.b;});
+}
+function hasCloze(q){return !!(q&&q.ex&&!isMathLang(q.lang)&&clozeParse(q.ex,q.word));}
+
+/* ── 英語の活用（選択肢を例文の形にそろえる） ── */
+var CZ_V='aeiou';
+function czCVC(b){return /[^aeiou][aeiou][^aeiouwxy]$/.test(b)&&(b.match(/[aeiouy]+/g)||[]).length===1;}
+function czS(b){if(/(s|x|z|ch|sh)$/.test(b))return [b+'es'];if(/[^aeiou]y$/.test(b))return [b.slice(0,-1)+'ies'];return [b+'s'];}
+function czED(b){
+  if(/e$/.test(b))return [b+'d'];
+  if(/[^aeiou]y$/.test(b))return [b.slice(0,-1)+'ied'];
+  var o=[b+'ed'];if(/[^aeiou][aeiou][^aeiouwxy]$/.test(b))o.push(b+b.slice(-1)+'ed');
+  return o; /* [通常形, 子音を重ねた形] */
+}
+function czING(b){
+  if(/ie$/.test(b))return [b.slice(0,-2)+'ying'];
+  if(/[^eoy]e$/.test(b))return [b.slice(0,-1)+'ing'];
+  var o=[b+'ing'];if(/[^aeiou][aeiou][^aeiouwxy]$/.test(b))o.push(b+b.slice(-1)+'ing');
+  return o;
+}
+function czLY(b){if(/[^aeiou]y$/.test(b))return [b.slice(0,-1)+'ily'];if(/le$/.test(b))return [b.slice(0,-1)+'y'];if(/ic$/.test(b))return [b+'ally'];return [b+'ly'];}
+var CZ_IRR=' undergo withhold foresee overcome mislead undertake uphold outdo arise bear bind breed cling deal dwell forbid forgo forsake lay lead mean seek shed slay spin spring stick sting strike strive swear sweep swell tear thrust tread weave weep wind withstand wring go take give make come become bring think teach catch buy fight find get hold keep know leave lose meet pay run say see sell send set sit speak spend stand tell understand win write break choose draw drive eat fall feel fly forget grow hide hit hurt let lie light put read ride rise shake shine shoot show shut sing sink sleep slide steal swim throw wake wear do have be begin beat bend bet bite bleed blow build burn burst cast cost creep cut dig feed flee fling forgive freeze grind hang hear kneel knit lend quit rid ring seek sew shrink slit smell speed spell spill split spread stink stride string strive sow '; /* 不規則動詞（-ed 形の選択肢に使わない） */
+var CZ_DBL=' admit commit permit omit emit submit transmit remit acquit refer prefer confer defer deter infer occur incur recur concur compel expel propel repel dispel control patrol regret forget begin equip rebel excel enrol enroll extol abet allot annul befit beget '; /* 語末にアクセントがあり子音を重ねる動詞 */
+var CZ_FORMS=[['',function(b){return [b];}],['s',czS],['ed',czED],['ing',czING],['ly',czLY]];
+/* 原形 base が例文中で surface になっているとき、同じ活用を target に当てる */
+function czInflect(base,surface,target){
+  var b=base.toLowerCase(),s=surface.toLowerCase(),t=target.toLowerCase();
+  if(/\s/.test(b)||/\s/.test(t))return null;
+  for(var i=0;i<CZ_FORMS.length;i++){
+    var idx=CZ_FORMS[i][1](b).indexOf(s);
+    if(idx>=0){
+      if(CZ_FORMS[i][0]==='ed'&&CZ_IRR.indexOf(' '+t+' ')>=0)return ''; /* 不規則動詞は選択肢から外す */
+      var tl=CZ_FORMS[i][1](t);
+      /* 子音を重ねるか：例文側が重ねていれば重ねる（commit→committed なら admit→admitted）、そうでなければ1音節の語だけ重ねる */
+      var r=tl.length>1?((czCVC(t)||CZ_DBL.indexOf(' '+t+' ')>=0||(idx===1&&!/[^aeiou](er|en|on|it|et|el)$/.test(t)))?tl[1]:tl[0]):tl[0];
+      return czCase(surface,r);
+    }
+  }
+  return null;
+}
+function czFormOf(base,surface){
+  var b=base.toLowerCase(),s=surface.toLowerCase();
+  for(var i=0;i<CZ_FORMS.length;i++)if(CZ_FORMS[i][1](b).indexOf(s)>=0)return CZ_FORMS[i][0];
+  return null;
+}
+function czCase(model,s){
+  if(model===model.toUpperCase()&&model.length>1)return s.toUpperCase();
+  if(model.charAt(0)===model.charAt(0).toUpperCase()&&model.charAt(0)!==model.charAt(0).toLowerCase())return s.charAt(0).toUpperCase()+s.slice(1);
+  return s;
+}
+/* 品詞のおおまかな推定（英英定義・訳語から） */
+function czPos(w){
+  if(w.pos&&/^(n|v|a|r|x|phr|pv|pb|pp|pn)$/.test(w.pos))return w.pos; /* JSONの品詞（n名詞 v動詞 a形容詞 r副詞 x接続詞・前置詞／熟語: pv動詞句 pb be＋形容詞句 pp副詞・前置詞句 pn名詞句） */
+  var d=String(w.def||'').trim().toLowerCase(),m=String(w.meaning||'');
+  if(/^to\s/.test(d))return 'v';
+  if(/^(a|an|the)\s/.test(d))return 'n';
+  if(/^(in a|in an|with)\s|ly$/.test(d)||/に$|く$|て$/.test(m.split(/[；;、]/)[0]))return 'r';
+  if(d)return 'a';
+  if(/する$|う$|く$|ぐ$|す$|つ$|ぬ$|ぶ$|む$|る$/.test(m.split(/[；;、（(]/)[0]))return 'v';
+  return '';
+}
+
+function clozeWanted(q){
+  var mode=G.cfg.cloze||'mix';
+  if(mode==='off'||!hasCloze(q))return false;
+  if(mode==='only')return true;
+  return Math.random()<0.5;
+}
+
+function qRenderCloze(q){
+  var parts=clozeParse(q.ex,q.word);
+  var blanks=parts.filter(function(p){return p.b;});
+  var phrase=isPhrase(q.word)||blanks.length>1;
+  var surface=blanks.map(function(p){return p.v;}).join(' … ');
+  var irregular=false;
+  /* 正解の表示形：単語は例文の形、熟語は見出しの形 */
+  var ca=phrase?q.word:blanks[0].v;
+  var pool=G.words.filter(function(w){return w.id!==q.id&&(w.lang||'en')===(q.lang||'en')&&isPhrase(w.word)===isPhrase(q.word)&&w.word&&w.word.toLowerCase()!==q.word.toLowerCase();});
+  var pos=czPos(q),same=pos?pool.filter(function(w){return czPos(w)===pos;}):[];
+  /* 名詞の複数形が空欄なら、数えられる名詞（英英定義が a/an で始まる）を優先 */
+  if(!phrase&&pos==='n'&&czFormOf(q.word,blanks[0].v)==='s'){var _cn=same.filter(function(w){return /^(a|an)\s/i.test(String(w.def||''));});if(_cn.length>=3)same=_cn;}
+  /* 空欄が2つ以上の熟語（take A for granted など）は、同じく A・B を含む熟語を選択肢にする（答えが形でばれないように） */
+  if(blanks.length>1){var _mb=pool.filter(function(w){return (!w.pos||/^p/.test(w.pos))&&/(^|\s)[AB](\s|$)/.test(w.word)||(w.ex&&(String(w.ex).match(/\{/g)||[]).length>1);});if(_mb.length>=3)same=_mb;}
+  var cand=shuffle(same.length>=3?same:pool);
+  var dist=[],used={};used[ca.toLowerCase()]=1;
+  for(var i=0;i<cand.length&&dist.length<3;i++){
+    var d;
+    if(phrase)d=cand[i].word;
+    else{
+      d=czInflect(q.word,blanks[0].v,cand[i].word);
+      if(d===null){irregular=true;break;}
+    }
+    if(!d||used[d.toLowerCase()])continue;
+    used[d.toLowerCase()]=1;dist.push(d);
+  }
+  if(irregular&&!phrase){
+    /* 不規則な活用（went, sought など）→ 全選択肢を原形で出す */
+    ca=q.word;dist=[];used={};used[ca.toLowerCase()]=1;
+    for(var j=0;j<cand.length&&dist.length<3;j++){var dd=cand[j].word;if(!used[dd.toLowerCase()]){used[dd.toLowerCase()]=1;dist.push(dd);}}
+  }
+  Q.cloze={parts:parts,ca:ca,irregular:irregular,phrase:phrase};
+  Q.rev=false;
+  el('QZ-badge').textContent='🧩 空欄に入る語句を選べ'+(irregular?'（原形）':'');
+  var qw=el('QZ-word');
+  /* 空欄の直前の a / an は答えのヒントになるので a(n) にする */
+  parts=parts.map(function(p,i){if(!p.b&&parts[i+1]&&parts[i+1].b){return {b:false,v:p.v.replace(/(^|\s)(an?|An?)(\s+)$/,function(_,s1,a,s2){return s1+(a.charAt(0)==='A'?'A(n)':'a(n)')+s2;})};}return p;});
+  qw.innerHTML='<div class="cz-sent">'+parts.map(function(p){return p.b?'<span class="cz-blank">'+(blanks.length>1?'＿＿＿':'＿＿＿＿＿')+'</span>':czEsc(p.v);}).join('')+'</div>'+
+    (q.exJa?'<button type="button" class="cz-ja-btn" id="CZ-ja">💡 和訳を見る</button><div class="cz-ja" id="CZ-ja-tx" style="display:none">'+czEsc(q.exJa)+'</div>':'');
+  qw.style.fontSize='';
+  var jb=el('CZ-ja');if(jb)jb.addEventListener('click',function(e){e.stopPropagation();el('CZ-ja-tx').style.display='block';this.style.display='none';Q.cloze.hint=true;});
+  var spk=el('B-speak');spk.style.display='none';
+  if(window.speechSynthesis)window.speechSynthesis.cancel();
+  var _wlk=el('QZ-weblio-link');if(_wlk)_wlk.style.display='none';
+  var choices=shuffle([ca].concat(dist).slice(0,4));
+  while(choices.length<4)choices.push('---');
+  Q.ca=ca;Q.ci=choices.indexOf(ca);Q.done=false;
+  var L=['A','B','C','D'],h='';
+  choices.forEach(function(c,i){
+    h+='<button class="ch-btn" data-i="'+i+'"><div class="ch-lt">'+L[i]+'</div><div class="ch-tx" lang="en">'+czEsc(c)+'</div><div class="ch-ic"></div></button>';
+  });
+  h+='<button class="ch-dk" id="QZ-dontknow">❓ 分からない</button>';
+  el('QZ-choices').innerHTML=h;
+  el('QZ-choices').querySelectorAll('.ch-btn').forEach(function(b){b.addEventListener('click',function(){qSelect(parseInt(this.getAttribute('data-i')));});});
+  el('QZ-choices').querySelector('#QZ-dontknow').addEventListener('click',function(){qDontKnow();});
+  if(Q.curStage==='quick')qQuickStart();
+  el('FB').classList.remove('on');
+  Q.qStartTime=Date.now();
+}
+/* 回答後：空欄を正解で埋め、和訳と意味を表示。英文を読み上げる */
+function clozeAfterAnswer(){
+  if(!Q.cloze)return;
+  var q=Q.q[Q.i];if(!q)return;
+  var C=Q.cloze;
+  var qw=el('QZ-word'),sent=qw.querySelector('.cz-sent');
+  if(sent)sent.innerHTML=C.parts.map(function(p){return p.b?'<span class="cz-fill">'+czEsc(p.v)+'</span>':czEsc(p.v);}).join('');
+  var jt=el('CZ-ja-tx'),jb=el('CZ-ja');if(jt)jt.style.display='block';if(jb)jb.style.display='none';
+  el('FB-tx').insertAdjacentHTML('beforeend','<div class="calc-expl"><b style="color:var(--tx)">'+czEsc(q.word)+'</b>　'+czEsc(q.meaning||'')+'</div>');
+  if(window.speechSynthesis&&G.cfg.speak!==false&&!isMathLang(q.lang))speak(czStrip(q.ex),q.lang||'en');
+  var spk=el('B-speak');
+  if(window.speechSynthesis&&!isMathLang(q.lang)){spk.style.display='inline-block';spk.onclick=function(){speak(czStrip(q.ex),q.lang||'en');};}
+}
+
 /* ══════════ 🧮 数学・化学：計算問題の自動採点 ══════════
    答え（meaning）が数値として読める数学・化学のカードは「計算問題」として、
    4択ではなく答えを入力して採点する。
@@ -6762,6 +6957,7 @@ function qRender(){
   var rev=G.cfg.rev&&Math.random()<0.3;Q.rev=rev;
   var l=LANGS[q.lang||'en'];
   Q.curStage=null;
+  Q.cloze=null;
 
   /* 🧮 数学・化学の計算問題は、どのモードでも答えを入力して採点 */
   if(isCalcCard(q)){Q.rev=false;Q.curStage=Q.phaseId||null;qRenderCalc(q);return;}
@@ -6785,6 +6981,9 @@ function qRender(){
     /* choice4 / quick / eng2eng → 下の4択描画へ（revなし、quickはタイマーを末尾で起動） */
     rev=false;Q.rev=false;
   }
+
+  /* 🧩 例文のある語は設定に応じて穴埋めで出題（英英フェーズ以外） */
+  if(!useDef&&clozeWanted(q)){qRenderCloze(q);return;}
 
   var _kb=(q.lang==='kobun');
   var _mtq=isMathLang(q.lang);
@@ -6898,6 +7097,7 @@ function qDontKnow(){
   /* 習得カウントは増やさない（requeueMax>0の場合） */
   Q.lastWasWrong=true;
   el('FB-tx').innerHTML='<span style="color:var(--ac3)">❓ 分からない</span> → <span style="color:var(--gn)">'+esc(Q.ca)+'</span>';
+  if(Q.cloze)clozeAfterAnswer();
   el('FB-dt').textContent=Q.testMode?'':'1日後に再復習';
   var _fbw=el('FB-weblio');if(_fbw){var q=Q.q[Q.i];var _t=safeDictUrl(q.lang||'en',q.word);_fbw.innerHTML=_t?'<a href="'+esc(_t)+'" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,120,220,.15);border:1px solid rgba(0,120,220,.35);color:#5ab4ff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:16px;text-decoration:none">🔍 辞書で調べる</a>':'';}
     el('FB').classList.add('on');
@@ -6943,6 +7143,7 @@ function qSelect(i){
     :(requeueMax===0
         ?'<span style="color:var(--rd)">✗ 不正解</span> → '+esc(Q.ca)+'<span style="color:var(--tx2);font-size:11px"> （再出題なし）</span>'
         :'<span style="color:var(--rd)">✗ 不正解</span> → '+esc(Q.ca));
+  if(Q.cloze)clozeAfterAnswer();
   el('FB-dt').textContent=Q.testMode?'':(ok?'次回: '+(q.s&&q.s.i||1)+'日後':'1日後に再復習');
   var _fbw2=el('FB-weblio');if(_fbw2){var _t2=safeDictUrl(q.lang||'en',q.word);_fbw2.innerHTML=_t2?'<a href="'+esc(_t2)+'" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,120,220,.15);border:1px solid rgba(0,120,220,.35);color:#5ab4ff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:16px;text-decoration:none">🔍 辞書で調べる</a>':'';}
     el('FB').classList.add('on');
@@ -7099,6 +7300,7 @@ function settingsLoad(){
   themeControlsSync();
   el('SEL-size').value=G.cfg.size||20;
   el('TG-rev').classList.toggle('on',!!G.cfg.rev);
+  el('SEL-cloze').value=G.cfg.cloze||'mix';
   el('TG-random').classList.toggle('on',!!G.cfg.random);
   el('TG-speak').classList.toggle('on',G.cfg.speak!==false);
   el('TG-autonext').classList.toggle('on',!!G.cfg.autonext);
@@ -7326,6 +7528,7 @@ function bind(){
   el('TG-random').addEventListener('click',function(){G.cfg.random=!this.classList.contains('on');this.classList.toggle('on',G.cfg.random);save();});
   el('ROW-random').addEventListener('click',function(e){if(e.target!==el('TG-random'))el('TG-random').click();});
   el('TG-rev').addEventListener('click',function(){G.cfg.rev=!G.cfg.rev;this.classList.toggle('on',G.cfg.rev);save();});
+  el('SEL-cloze').addEventListener('change',function(){G.cfg.cloze=this.value;save();toast(this.value==='off'?'穴埋め問題を出しません':this.value==='only'?'例文のある語は必ず穴埋めで出題します':'例文のある語をときどき穴埋めで出題します');});
   el('ROW-rev').addEventListener('click',function(e){if(e.target!==el('TG-rev'))el('TG-rev').click();});
   el('TG-speak').addEventListener('click',function(){G.cfg.speak=!this.classList.contains('on');this.classList.toggle('on',G.cfg.speak);save();});
   el('ROW-speak').addEventListener('click',function(e){if(e.target!==el('TG-speak'))el('TG-speak').click();});
@@ -7597,7 +7800,7 @@ function bind(){
     fr.onload=function(ev){
       try{
         var d=JSON.parse(ev.target.result);
-        var src=d.words||d;
+        var src=d.words||(d&&d.content&&typeof d.content==='object'?[].concat(d.content.vocabulary||[],d.content.phrases||[],d.content.words||[]):null)||d; /* 単語帳JSON（content.vocabulary / phrases）にも対応 */
         if(!src||!src.length)throw new Error('単語が見つかりません');
 
         /* 照合用キー: 大小文字・前後空白・引用符ゆれを吸収 */
@@ -7610,7 +7813,7 @@ function bind(){
         src.forEach(function(w){
           /* 🔒 文字列として扱える項目だけ取り出す */
           if(!sObj(w))return;
-          w={id:(typeof w.id==='string'?w.id:''),word:sStr(w.word,500),meaning:sStr(w.meaning),def:sStr(w.def)};
+          w={id:(typeof w.id==='string'?w.id:''),word:sStr(w.word,500),meaning:sStr(w.meaning),def:sStr(w.def),ex:sStr(w.ex||w.example,1000),exJa:sStr(w.exJa||w.example_ja,1000),pos:sStr(w.pos,4)};
           if(!w.word)return;
           if(w.id)byId[w.id]=w;
           var k=nk(w.word);
@@ -7618,7 +7821,7 @@ function bind(){
         });
 
         /* まず変更点を集計するだけで、この時点では一切書き換えない */
-        var plan=[],hit=0,un=0,cw=0,cm=0,cd=0,unList=[];
+        var plan=[],hit=0,un=0,cw=0,cm=0,cd=0,ce=0,unList=[];
         G.words.forEach(function(w){
           var s=byId[w.id]||byWord[nk(w.word)];
           if(!s){un++;if(unList.length<8)unList.push(w.word);return;}
@@ -7627,7 +7830,8 @@ function bind(){
           if(s.word&&s.word!==w.word){p.word=s.word;cw++;}
           if(s.meaning&&s.meaning!==w.meaning){p.meaning=s.meaning;cm++;}
           if(s.def&&s.def!==w.def){p.def=s.def;cd++;}
-          if(p.word||p.meaning||p.def)plan.push(p);
+          if(s.ex&&(s.ex!==w.ex||(s.exJa||'')!==(w.exJa||''))){p.ex=s.ex;p.exJa=s.exJa;p.pos=s.pos;ce++;}
+          if(p.word||p.meaning||p.def||p.ex)plan.push(p);
         });
 
         if(!hit){
@@ -7635,12 +7839,12 @@ function bind(){
           return;
         }
 
-        var changed=cw+cm+cd;
+        var changed=cw+cm+cd+ce;
         var msg='一致 '+hit+' 語';
         if(un)msg+='／未一致 '+un+' 語';
         msg+='\n\n';
         if(changed){
-          msg+='見出し語  '+cw+' 件\n和訳      '+cm+' 件\n定義      '+cd+' 件';
+          msg+='見出し語  '+cw+' 件\n和訳      '+cm+' 件\n定義      '+cd+' 件\n例文      '+ce+' 件';
           msg+='\n\nを更新します。\n学習記録・出題履歴・連続日数はそのまま保持されます。';
         }else{
           msg+='内容の違いは見つかりませんでした。\n（すでに更新済みの可能性があります）';
@@ -7661,6 +7865,7 @@ function bind(){
               if(p.word)p.w.word=p.word;
               if(p.meaning)p.w.meaning=p.meaning;
               if(p.def)p.w.def=p.def;
+              if(p.ex){p.w.ex=p.ex;p.w.exJa=p.exJa||'';if(p.pos)p.w.pos=p.pos;}
             });
             /* 忘却曲線キューが持つ表示用キャッシュも合わせて更新 */
             var eb=0;
